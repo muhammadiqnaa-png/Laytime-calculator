@@ -92,7 +92,7 @@ init_db()
 st.markdown("""
     <style>
         [data-testid="stSidebar"] {
-            background-color: #f8f9fa !important;
+            background: var(--sidebar-background-color, #f8f9fa);
             padding: 20px 15px;
         }
         [data-testid="stSidebar"] h1, 

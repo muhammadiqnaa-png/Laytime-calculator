@@ -142,12 +142,10 @@ if pilihan_kapal != "-- Kapal Baru --":
 
 # Sidebar untuk parameter umum
 st.sidebar.markdown("### 📦 Data Kapal")
-nama_kapal_input = st.sidebar.text_input("Nama Kapal", value=kapal_data.get("nama") if kapal_data else "")
-total_cargo_input = st.sidebar.number_input("Total Cargo (MT)", value=float(kapal_data.get("total_cargo", 0)))
-
-# Speed dan konsumsi
-speed_isi = st.sidebar.number_input("Speed Isi (knot)", value=float(kapal_data.get("speed_isi", 0)))
-speed_kosong = st.sidebar.number_input("Speed Kosong (knot)", value=float(kapal_data.get("speed_kosong", 0)))
+total_cargo_input = st.sidebar.number_input(
+    "Total Cargo (MT)",
+    value=float(kapal_data["total_cargo"]) if kapal_data and "total_cargo" in kapal_data else 0.0
+)
 consumption = st.sidebar.number_input("Consumption (liter/jam)", value=float(kapal_data.get("consumption", 0)))
 
 # Parameter Voyage

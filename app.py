@@ -89,27 +89,35 @@ st.set_page_config(page_title="Freight Calculator", layout="wide")
 init_db()
 
 # 🎨 Sidebar Styling
-st.markdown("""
-    <style>
-    /* Sidebar Background mengikuti tema (dark/light/system) */
-        [data-testid="stSidebar"] {
-            background: var(--sidebar-background-color, !important;
-            padding: 20px 15px;
-        }
-        [data-testid="stSidebar"] h1, 
-        [data-testid="stSidebar"] h2, 
-        [data-testid="stSidebar"] h3 {
-            color: var(--sidebar-background-color) !important;
-            font-weight: 600;
-        }
-        .sidebar-section {
-            font-weight: bold;
-            font-size: 16px;
-            color: #212529;
-            margin-top: 15px;
-            margin-bottom: 8px;
-            border-bottom: 2px var(--sidebar-background-color) !important;
-            padding-bottom: 3px;
+st.sidebar.markdown("""
+<style>
+/* Card style untuk expander */
+[data-testid="stSidebar"] .stExpander {
+    background-color: var(--sidebar-background-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    box-shadow: 1px 1px 5px rgba(0,0,0,0.05);
+    transition: all 0.2s ease;
+}
+
+/* Hover effect */
+[data-testid="stSidebar"] .stExpander:hover {
+    background-color: rgba(13,110,253,0.05);
+    cursor: pointer;
+}
+
+/* Title styling */
+[data-testid="stSidebar"] .stExpanderHeader {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+/* Icon sebelum judul */
+[data-testid="stSidebar"] .stExpanderHeader::before {
+    content: "💾 "; 
+    margin-right: 5px;
         }
     </style>
 """, unsafe_allow_html=True)

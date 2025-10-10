@@ -91,6 +91,7 @@ init_db()
 # 🎨 Sidebar Styling
 st.markdown("""
     <style>
+    /* Sidebar Background mengikuti tema */
         [data-testid="stSidebar"] {
             background: var(--sidebar-background-color, #f8f9fa);
             padding: 20px 15px;

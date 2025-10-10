@@ -10,7 +10,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 DB_PATH = "data.db"
 
 # ==============================
-# Database Setup (auto update)
+# Database Setup (Auto Update)
 # ==============================
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -20,296 +20,203 @@ def init_db():
     c.execute("""
         CREATE TABLE IF NOT EXISTS kapal (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nama TEXT UNIQUE
+            nama TEXT
         )
     """)
 
-    # Tambah kolom baru kalau belum ada
-    required_cols = {
-        "total_cargo": "REAL",
-        "consumption": "REAL",
-        "angsuran": "REAL",
-        "crew_cost": "REAL",
-        "asuransi": "REAL",
-        "docking": "REAL",
-        "perawatan": "REAL",
-        "sertifikat": "REAL",
-        "depresiasi": "REAL",
-        "charter_hire": "REAL",
+    # Tambah kolom baru jika belum ada
+    existing_cols = [r[1] for r in c.execute("PRAGMA table_info(kapal)")]
+    new_cols = {
         "speed_isi": "REAL",
         "speed_kosong": "REAL",
         "consumption_isi": "REAL",
         "consumption_kosong": "REAL",
         "consumption_port": "REAL",
-        "daily_cost": "REAL"
+        "daily_cost": "REAL",
+        "total_cargo": "REAL"
     }
-
-    c.execute("PRAGMA table_info(kapal)")
-    existing_cols = [row[1] for row in c.fetchall()]
-    for col, dtype in required_cols.items():
+    for col, typ in new_cols.items():
         if col not in existing_cols:
-            c.execute(f"ALTER TABLE kapal ADD COLUMN {col} {dtype}")
+            c.execute(f"ALTER TABLE kapal ADD COLUMN {col} {typ}")
 
     conn.commit()
     conn.close()
 
 
-def tambah_kapal(data):
+def load_kapal():
     conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("""
-        INSERT OR REPLACE INTO kapal (
-            nama, total_cargo, consumption, angsuran, crew_cost, asuransi, docking,
-            perawatan, sertifikat, depresiasi, charter_hire,
-            speed_isi, speed_kosong, consumption_isi, consumption_kosong, consumption_port, daily_cost
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    """, data)
-    conn.commit()
-    conn.close()
-
-
-def hapus_kapal(nama):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("DELETE FROM kapal WHERE nama=?", (nama,))
-    conn.commit()
-    conn.close()
-
-
-def get_all_kapal():
-    conn = sqlite3.connect(DB_PATH)
-    try:
-        df = pd.read_sql_query("SELECT * FROM kapal", conn)
-    except Exception:
-        df = pd.DataFrame()
+    df = pd.read_sql_query("SELECT * FROM kapal", conn)
     conn.close()
     return df
 
 
-def get_kapal_by_name(nama):
+def save_kapal(data):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("SELECT * FROM kapal WHERE nama=?", (nama,))
-    row = c.fetchone()
+    if data.get("id"):
+        c.execute("""
+            UPDATE kapal SET nama=?, speed_isi=?, speed_kosong=?, consumption_isi=?, 
+            consumption_kosong=?, consumption_port=?, daily_cost=?, total_cargo=? WHERE id=?
+        """, (
+            data["nama"], data["speed_isi"], data["speed_kosong"], data["consumption_isi"],
+            data["consumption_kosong"], data["consumption_port"], data["daily_cost"],
+            data["total_cargo"], data["id"]
+        ))
+    else:
+        c.execute("""
+            INSERT INTO kapal (nama, speed_isi, speed_kosong, consumption_isi, consumption_kosong, 
+            consumption_port, daily_cost, total_cargo)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            data["nama"], data["speed_isi"], data["speed_kosong"], data["consumption_isi"],
+            data["consumption_kosong"], data["consumption_port"], data["daily_cost"], data["total_cargo"]
+        ))
+    conn.commit()
     conn.close()
-    return row
 
 
 # ==============================
-# APP SETUP
+# Inisialisasi DB
 # ==============================
-st.set_page_config(page_title="Freight Calculator", layout="wide")
 init_db()
+kapal_df = load_kapal()
 
-USER_CREDENTIALS = {"admin": "12345", "user1": "abcde"}
-
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.username = ""
-
-if not st.session_state.logged_in:
-    st.title("🔒 Login Aplikasi Freight Calculator")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == password:
-            st.session_state.logged_in = True
-            st.session_state.username = username
-            st.rerun()
-        else:
-            st.error("Username / password salah")
-    st.stop()
-
-st.sidebar.success(f"Login sebagai: {st.session_state.username}")
-st.title("🚢 Freight Calculator Tongkang")
+st.title("🚢 Freight Calculator Demo (Final)")
 
 # ==============================
-# SIDEBAR - Pengaturan & Parameter
+# Sidebar - Mode & Parameter
 # ==============================
-st.sidebar.title("⚙️ Pengaturan")
+with st.sidebar.expander("⚙️ Mode & Pilihan Kapal", expanded=True):
+    mode = st.radio("Pilih Mode:", ["Owner", "Charter Hire"])
+    kapal_list = ["-- Kapal Baru --"] + kapal_df["nama"].tolist()
+    selected_kapal = st.selectbox("Pilih Kapal:", kapal_list)
 
-mode = st.sidebar.radio("Mode Biaya:", ["Owner", "Charter"])
-df_kapal = get_all_kapal()
-kapal_list = ["-- Kapal Baru --"] + df_kapal["nama"].dropna().tolist() if not df_kapal.empty else ["-- Kapal Baru --"]
-pilihan_kapal = st.sidebar.selectbox("Pilih Kapal", kapal_list)
+    if selected_kapal != "-- Kapal Baru --":
+        kapal_data = kapal_df[kapal_df["nama"] == selected_kapal].iloc[0].to_dict()
+    else:
+        kapal_data = None
 
-kapal_data = None
-if pilihan_kapal != "-- Kapal Baru --":
-    row = get_kapal_by_name(pilihan_kapal)
-    if row:
-        columns = [col for col in df_kapal.columns]
-        kapal_data = dict(zip(columns, row))
+with st.sidebar.expander("📦 Data Kapal"):
+    nama_kapal_input = st.text_input("Nama Kapal", value=kapal_data["nama"] if kapal_data else "")
+    total_cargo = st.number_input("Total Cargo (MT)", value=float(kapal_data["total_cargo"]) if kapal_data and "total_cargo" in kapal_data else 0.0)
+    speed_isi = st.number_input("Speed Isi (knot)", value=float(kapal_data["speed_isi"]) if kapal_data and "speed_isi" in kapal_data else 0.0)
+    speed_kosong = st.number_input("Speed Kosong (knot)", value=float(kapal_data["speed_kosong"]) if kapal_data and "speed_kosong" in kapal_data else 0.0)
+    consumption_isi = st.number_input("Consumption Laden (liter/jam)", value=float(kapal_data["consumption_isi"]) if kapal_data and "consumption_isi" in kapal_data else 0.0)
+    consumption_kosong = st.number_input("Consumption Ballast (liter/jam)", value=float(kapal_data["consumption_kosong"]) if kapal_data and "consumption_kosong" in kapal_data else 0.0)
+    consumption_port = st.number_input("Consumption Port (liter/hari)", value=float(kapal_data["consumption_port"]) if kapal_data and "consumption_port" in kapal_data else 0.0)
+    daily_cost = st.number_input("Daily Cost (Rp/hari)", value=float(kapal_data["daily_cost"]) if kapal_data and "daily_cost" in kapal_data else 0.0)
 
-# Sidebar untuk parameter umum
-st.sidebar.markdown("### 📦 Data Kapal")
-total_cargo_input = st.sidebar.number_input(
-    "Total Cargo (MT)",
-    value=float(kapal_data["total_cargo"]) if kapal_data and "total_cargo" in kapal_data else 0.0
-)
-consumption = st.sidebar.number_input("Consumption (liter/jam)", value=float(kapal_data.get("consumption", 0)))
+with st.sidebar.expander("⚓ Parameter Voyage"):
+    jarak_laden = st.number_input("Jarak Laden (mil laut)", value=0.0)
+    jarak_ballast = st.number_input("Jarak Ballast (mil laut)", value=0.0)
+    port_days = st.number_input("Port Days (hari)", value=0.0)
+    harga_bbm = st.number_input("Harga BBM (Rp/liter)", value=0.0)
 
-# Parameter Voyage
-st.sidebar.markdown("### ⚓ Parameter Voyage")
-harga_bunker = st.sidebar.number_input("Harga Bunker (Rp/liter)", value=0.0)
-harga_air_tawar = st.sidebar.number_input("Harga Air Tawar (Rp/Ton)", value=0.0)
-port_cost = st.sidebar.number_input("Port cost/call (Rp)", value=0.0)
-asist_tug = st.sidebar.number_input("Asist Tug (Rp)", value=0.0)
-premi_nm = st.sidebar.number_input("Premi (Rp/NM)", value=0.0)
-other_cost = st.sidebar.number_input("Other Cost (Rp)", value=0.0)
-port_stay = st.sidebar.number_input("Port Stay (hari)", value=0.0)
-
-# Biaya Mode
-st.sidebar.markdown("### 💰 Biaya Mode")
-if mode == "Owner":
-    angsuran = st.sidebar.number_input("Angsuran (Rp/bulan)", value=0.0)
-    crew_cost = st.sidebar.number_input("Crew Cost (Rp/bulan)", value=0.0)
-    asuransi = st.sidebar.number_input("Asuransi (Rp/bulan)", value=0.0)
-    docking = st.sidebar.number_input("Docking (Rp/bulan)", value=0.0)
-    perawatan = st.sidebar.number_input("Perawatan (Rp/bulan)", value=0.0)
-    sertifikat = st.sidebar.number_input("Sertifikat (Rp/bulan)", value=0.0)
-    depresiasi = st.sidebar.number_input("Depresiasi (Rp)", value=0.0)
-else:
-    charter_hire = st.sidebar.number_input("Charter Hire (Rp/bulan)", value=0.0)
+with st.sidebar.expander("💾 Simpan Data Kapal"):
+    if st.button("💾 Simpan/Update Kapal"):
+        save_kapal({
+            "id": kapal_data["id"] if kapal_data else None,
+            "nama": nama_kapal_input,
+            "speed_isi": speed_isi,
+            "speed_kosong": speed_kosong,
+            "consumption_isi": consumption_isi,
+            "consumption_kosong": consumption_kosong,
+            "consumption_port": consumption_port,
+            "daily_cost": daily_cost,
+            "total_cargo": total_cargo
+        })
+        st.success("Data kapal berhasil disimpan!")
 
 # ==============================
-# INPUT MAIN
-# ==============================
-st.header("📥 Input Voyage")
-pol = st.text_input("Port of Loading (POL)")
-pod = st.text_input("Port of Discharge (POD)")
-jarak_laden = st.number_input("Jarak Laden (NM)", value=0.0)
-jarak_ballast = st.number_input("Jarak Ballast (NM)", value=0.0)
-
-# ==============================
-# PERHITUNGAN
+# Perhitungan
 # ==============================
 sailing_time = (
-    (jarak_laden / speed_isi if speed_isi else 0)
-    + (jarak_ballast / speed_kosong if speed_kosong else 0)
+    (jarak_laden / speed_isi if speed_isi else 0) +
+    (jarak_ballast / speed_kosong if speed_kosong else 0)
 )
-voyage_days = (sailing_time / 24) + port_stay
-total_consumption = (sailing_time * consumption) + (port_stay * consumption)
+voyage_days = sailing_time / 24 + port_days
 
-biaya_umum = {
-    "Bunker BBM": total_consumption * harga_bunker,
-    "Air Tawar": (voyage_days * 2) * harga_air_tawar,
-    "Port Cost": port_cost * 2,
-    "Premi": premi_nm * (jarak_laden + jarak_ballast),
-    "Asist": asist_tug
-}
+total_consumption = (
+    (sailing_time * consumption_isi if consumption_isi else 0) +
+    (sailing_time * consumption_kosong if consumption_kosong else 0) +
+    (port_days * consumption_port if consumption_port else 0)
+)
 
-if mode == "Owner":
-    biaya_mode = {
-        "Angsuran": (angsuran / 30) * voyage_days,
-        "Crew Cost": (crew_cost / 30) * voyage_days,
-        "Asuransi": (asuransi / 30) * voyage_days,
-        "Docking": (docking / 30) * voyage_days,
-        "Perawatan": (perawatan / 30) * voyage_days,
-        "Sertifikat": (sertifikat / 30) * voyage_days,
-        "Depresiasi": ((depresiasi / 15) / 12 / 30) * voyage_days,
-        "Other": other_cost
-    }
-else:
-    biaya_mode = {
-        "Charter Hire": (charter_hire / 30) * voyage_days,
-        "Other": other_cost
-    }
+biaya_bbm = total_consumption * harga_bbm
+biaya_harian = voyage_days * daily_cost
+total_cost = biaya_bbm + biaya_harian
 
-total_cost = sum(biaya_umum.values()) + sum(biaya_mode.values())
-cost_per_mt = total_cost / total_cargo_input if total_cargo_input else 0
+freight_mt = total_cost / total_cargo if total_cargo else 0
 
 # ==============================
-# OUTPUT
+# Output Utama
 # ==============================
-st.header("📊 Hasil Perhitungan")
-st.write(f"Sailing Time (jam): {sailing_time:,.2f}")
-st.write(f"Voyage Days: {voyage_days:,.2f}")
-st.write(f"Total Consumption (liter): {total_consumption:,.0f}")
+st.markdown("## 🚀 Hasil Perhitungan")
+col1, col2 = st.columns(2)
+col1.metric("Sailing Time (jam)", f"{sailing_time:,.2f}")
+col2.metric("Voyage Days (hari)", f"{voyage_days:,.2f}")
 
-st.subheader(f"💰 Biaya Mode ({mode})")
-for k, v in biaya_mode.items():
-    st.write(f"- {k}: Rp {v:,.0f}")
+col3, col4 = st.columns(2)
+col3.metric("Total Consumption (L)", f"{total_consumption:,.0f}")
+col4.metric("Total Cost (Rp)", f"{total_cost:,.0f}")
 
-st.subheader("💰 Biaya Umum")
-for k, v in biaya_umum.items():
-    st.write(f"- {k}: Rp {v:,.0f}")
-
-st.subheader("🧮 Total Cost")
-st.write(f"TOTAL COST: Rp {total_cost:,.0f}")
-st.write(f"FREIGHT: Rp {cost_per_mt:,.0f} / MT")
+st.metric("Freight per MT (Rp/MT)", f"{freight_mt:,.0f}")
 
 # ==============================
-# PROFIT SCENARIO
+# Profit Scenario
 # ==============================
-st.subheader("📈 Freight dengan Profit (0% - 50%)")
-profit_list = []
-for p in range(0, 55, 5):
-    freight = cost_per_mt * (1 + p / 100)
-    revenue = freight * total_cargo_input
-    Pph = revenue * 0.012
-    net_profit = revenue - Pph - total_cost
-    profit_list.append([f"{p}%", f"Rp {freight:,.0f}", f"Rp {revenue:,.0f}", f"Rp {Pph:,.0f}", f"Rp {net_profit:,.0f}"])
-profit_df = pd.DataFrame(profit_list, columns=["Profit %", "Freight / MT", "Revenue", "Pph", "Net Profit"])
-st.table(profit_df)
+st.markdown("### 💰 Profit Scenario")
+profit_df = pd.DataFrame({
+    "Profit %": [0, 10, 20, 30, 40, 50],
+    "Freight (Rp/MT)": [
+        freight_mt * (1 + p / 100) for p in [0, 10, 20, 30, 40, 50]
+    ]
+})
+st.dataframe(profit_df, hide_index=True)
 
 # ==============================
-# PDF EXPORT
+# PDF Report
 # ==============================
-def generate_pdf(input_data, results, profit_df):
+def generate_pdf():
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20, leftMargin=20, topMargin=20, bottomMargin=20)
-    elements = []
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
     styles = getSampleStyleSheet()
+    story = []
 
-    elements.append(Paragraph("LAPORAN PERHITUNGAN FREIGHT", styles["Title"]))
-    elements.append(Spacer(1, 8))
+    story.append(Paragraph("LAPORAN PERHITUNGAN FREIGHT", styles["Heading1"]))
+    story.append(Spacer(1, 12))
 
-    elements.append(Paragraph("Input Utama", styles["Heading2"]))
-    table_input = Table(input_data, colWidths=[150, 300])
-    table_input.setStyle(TableStyle([
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-        ("FONTSIZE", (0, 0), (-1, -1), 9)
-    ]))
-    elements.append(table_input)
-    elements.append(Spacer(1, 10))
-
-    elements.append(Paragraph("Hasil Perhitungan", styles["Heading2"]))
-    table_results = Table(results, colWidths=[200, 250])
-    table_results.setStyle(TableStyle([
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-        ("FONTSIZE", (0, 0), (-1, -1), 9)
-    ]))
-    elements.append(table_results)
-    elements.append(Spacer(1, 10))
-
-    elements.append(Paragraph("Skenario Profit", styles["Heading2"]))
-    data_profit = [list(profit_df.columns)] + profit_df.values.tolist()
-    table_profit = Table(data_profit, colWidths=[60, 90, 100, 100, 100])
-    table_profit.setStyle(TableStyle([
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+    data = [
+        ["Parameter", "Nilai"],
+        ["Jarak Laden (mil)", f"{jarak_laden:,.2f}"],
+        ["Jarak Ballast (mil)", f"{jarak_ballast:,.2f}"],
+        ["Voyage Days", f"{voyage_days:,.2f}"],
+        ["Total Cost (Rp)", f"{total_cost:,.0f}"],
+        ["Freight (Rp/MT)", f"{freight_mt:,.0f}"]
+    ]
+    t = Table(data, colWidths=[200, 200])
+    t.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("ALIGN", (0, 0), (-1, -1), "CENTER")
+        ("FONTSIZE", (0, 0), (-1, -1), 8)
     ]))
-    elements.append(table_profit)
+    story.append(t)
+    story.append(Spacer(1, 12))
 
-    doc.build(elements)
+    # Profit Scenario Table
+    story.append(Paragraph("Profit Scenario (0–50%)", styles["Heading2"]))
+    data2 = [["Profit %", "Freight (Rp/MT)"]] + profit_df.values.tolist()
+    t2 = Table(data2, colWidths=[200, 200])
+    t2.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+        ("FONTSIZE", (0, 0), (-1, -1), 8)
+    ]))
+    story.append(t2)
+
+    doc.build(story)
     buffer.seek(0)
     return buffer
 
-input_data = [
-    ["POL", pol], ["POD", pod],
-    ["Jarak Laden (NM)", jarak_laden],
-    ["Jarak Ballast (NM)", jarak_ballast],
-    ["Voyage Days", f"{voyage_days:,.2f}"]
-]
-results = list(biaya_mode.items()) + list(biaya_umum.items()) + [["TOTAL COST", total_cost], ["Cost per MT", cost_per_mt]]
-pdf_buffer = generate_pdf(input_data, results, profit_df)
-
-st.download_button("📥 Download Laporan PDF", data=pdf_buffer, file_name=f"Freight_Report_{pol or 'POL'}_{pod or 'POD'}.pdf", mime="application/pdf")
-
-st.sidebar.markdown("---")
-if st.sidebar.button("Logout"):
-    st.session_state.logged_in = False
-    st.session_state.username = ""
-    st.rerun()
+pdf_buffer = generate_pdf()
+st.download_button("📄 Download PDF", data=pdf_buffer, file_name="Laporan_Freight.pdf", mime="application/pdf")

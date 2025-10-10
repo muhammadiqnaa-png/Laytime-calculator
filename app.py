@@ -91,15 +91,15 @@ init_db()
 # 🎨 Sidebar Styling
 st.markdown("""
     <style>
-    /* Sidebar Background mengikuti tema */
+    /* Sidebar Background mengikuti tema (dark/light/system) */
         [data-testid="stSidebar"] {
-            background: var(--sidebar-background-color, #f8f9fa);
+            background: var(--sidebar-background-color, !important;
             padding: 20px 15px;
         }
         [data-testid="stSidebar"] h1, 
         [data-testid="stSidebar"] h2, 
         [data-testid="stSidebar"] h3 {
-            color: #0d6efd;
+            color: var(--sidebar-background-color) !important;
             font-weight: 600;
         }
         .sidebar-section {
@@ -108,7 +108,7 @@ st.markdown("""
             color: #212529;
             margin-top: 15px;
             margin-bottom: 8px;
-            border-bottom: 2px solid #dee2e6;
+            border-bottom: 2px var(--sidebar-background-color) !important;
             padding-bottom: 3px;
         }
     </style>

@@ -10,8 +10,8 @@ import requests
 from passlib.hash import bcrypt
 
 # CONFIG: set MIDTRANS_SERVER_KEY and FRONTEND_URL as environment variables
-MIDTRANS_SERVER_KEY = os.getenv("MIDTRANS_SERVER_KEY")  # e.g. "SB-Mid-server-xxxx..."
-FRONTEND_URL = os.getenv("FRONTEND_URL", "https://your-streamlit-app.streamlit.app")
+MIDTRANS_SERVER_KEY = os.getenv("Mid_server_IJD2MBz_4teBow5h67KiRyEJ")  # e.g. "SB-Mid-server-xxxx..."
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://freight-calculatordemobyiqna.streamlit.app/")
 DB_PATH = os.getenv("DB_PATH", "users.db")
 
 app = FastAPI(title="Prabayar Backend for Freight Demo")

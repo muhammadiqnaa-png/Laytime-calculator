@@ -1,4 +1,3 @@
-# app.py (Streamlit) - FULL ready-to-copy
 import streamlit as st
 import pandas as pd
 import sqlite3

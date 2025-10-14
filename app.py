@@ -1,3 +1,4 @@
+# app.py (Streamlit) - FULL ready-to-copy
 import streamlit as st
 import pandas as pd
 import sqlite3
@@ -6,16 +7,20 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
+import requests
+import os
 
-DB_PATH = "data.db"
+# ---------- CONFIG ----------
+BACKEND = st.secrets.get("backend_url", "https://my-backend.onrender.com")
+DB_PATH = "data.db"  # kapal DB (local for Streamlit app)
+# ----------------------------
 
 # ==============================
-# Database Setup (safe, auto-alter)
+# Database Setup (kapal) - same as your original
 # ==============================
-def init_db():
+def init_db_kapal():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-
     required_cols = {
         "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
         "nama": "TEXT UNIQUE",
@@ -30,30 +35,21 @@ def init_db():
         "depresiasi": "REAL",
         "charter_hire": "REAL"
     }
-
-    # create table if not exists (with all required cols as a baseline)
     c.execute(f"""
         CREATE TABLE IF NOT EXISTS kapal (
             {", ".join([f"{col} {dtype}" for col, dtype in required_cols.items()])}
         )
     """)
-
-    # get existing cols and add missing ones (ALTER TABLE)
     c.execute("PRAGMA table_info(kapal)")
     existing_cols = [row[1] for row in c.fetchall()]
     for col, dtype in required_cols.items():
         if col not in existing_cols:
-            # NOTE: SQLite will ignore PRIMARY KEY re-declaration if column exists;
-            # but since col not in existing_cols, safe to add simple column (skip PK if needed)
             try:
-                # avoid adding PK via ALTER (it will fail), so add without PK if col == id and table exists
                 if col == "id":
-                    # skip adding id if table already existed without it (rare)
                     continue
                 c.execute(f"ALTER TABLE kapal ADD COLUMN {col} {dtype}")
             except Exception:
                 pass
-
     conn.commit()
     conn.close()
 
@@ -91,39 +87,125 @@ def get_kapal_by_name(nama):
     conn.close()
     return row
 
-# ==============================
-# Init app
-# ==============================
-st.set_page_config(page_title="Freight Calculator", layout="wide")
-init_db()
+init_db_kapal()
 
 # ==============================
-# Simple auth (keep as you had)
+# Helper: payment link UI
 # ==============================
-USER_CREDENTIALS = {"admin": "12345", "user1": "abcde"}
+def open_payment_link(url):
+    st.markdown(f"[Klik di sini untuk bayar (Midtrans Sandbox)]({url})")
+
+# ==============================
+# AUTH / PRABAYAR
+# ==============================
+st.set_page_config(page_title="Freight Calculator - Demo Prabayar", layout="wide")
+
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
+    st.session_state.email = ""
     st.session_state.username = ""
 
 if not st.session_state.logged_in:
-    st.title("🔒 Login Aplikasi Freight Calculator")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == password:
-            st.session_state.logged_in = True
-            st.session_state.username = username
-            st.experimental_rerun()
-        else:
-            st.error("Username / password salah")
+    st.title("🔐 Login / Daftar — Freight Calculator (Demo)")
+    tab1, tab2 = st.tabs(["Login", "Daftar Baru"])
+    with tab1:
+        email = st.text_input("Email", key="login_email")
+        password = st.text_input("Password", type="password", key="login_pw")
+        if st.button("Login"):
+            try:
+                r = requests.post(f"{BACKEND}/login", json={"email": email, "password": password}, timeout=10)
+                if r.status_code == 200:
+                    st.session_state.logged_in = True
+                    st.session_state.email = email
+                    st.session_state.username = email.split("@")[0]
+                    st.success("Login berhasil")
+                    st.experimental_rerun()
+                else:
+                    err = r.json().get("detail") if r.headers.get("content-type","").startswith("application/json") else r.text
+                    st.error(err or "Login gagal")
+            except Exception as e:
+                st.error(f"Gagal terhubung ke backend: {e}")
+    with tab2:
+        email_r = st.text_input("Email", key="reg_email")
+        password_r = st.text_input("Password", type="password", key="reg_pw")
+        password_r2 = st.text_input("Konfirmasi Password", type="password", key="reg_pw2")
+        if st.button("Daftar"):
+            if not email_r or not password_r:
+                st.error("Email & password diperlukan")
+            elif password_r != password_r2:
+                st.error("Password konfirmasi tidak cocok")
+            else:
+                try:
+                    r = requests.post(f"{BACKEND}/register", json={"email": email_r, "password": password_r}, timeout=10)
+                    if r.status_code == 200:
+                        st.success("Registrasi sukses — silakan login")
+                    else:
+                        err = r.json().get("detail") if r.headers.get("content-type","").startswith("application/json") else r.text
+                        st.error(err or "Gagal registrasi")
+                except Exception as e:
+                    st.error(f"Gagal terhubung ke backend: {e}")
+    st.stop()
+
+# After login: check active status
+st.sidebar.success("Login sebagai: " + st.session_state.email)
+st.title("🚢 Freight Calculator Tongkang (Demo Prabayar)")
+
+try:
+    r = requests.get(f"{BACKEND}/status/{st.session_state.email}", timeout=8)
+    status = r.json() if r.status_code == 200 else {"active": False}
+except Exception:
+    status = {"active": False}
+
+if not status.get("active"):
+    st.warning("⚠️ Masa aktif Anda habis atau belum membeli paket.")
+    st.info("Pilih paket di bawah untuk aktifkan akses:")
+
+    col1, col2, col3 = st.columns(3)
+    if col1.button("7 Hari — Rp50.000"):
+        try:
+            resp = requests.post(f"{BACKEND}/create-transaction", json={"email": st.session_state.email, "days": 7}, timeout=10)
+            if resp.status_code == 200:
+                pay = resp.json()
+                open_payment_link(pay.get("payment_url"))
+                st.info("Setelah bayar, tunggu webhook atau refresh setelah beberapa detik.")
+            else:
+                st.error(f"Gagal membuat transaksi: {resp.text}")
+        except Exception as e:
+            st.error(f"Gagal hubungi backend: {e}")
+
+    if col2.button("30 Hari — Rp200.000"):
+        try:
+            resp = requests.post(f"{BACKEND}/create-transaction", json={"email": st.session_state.email, "days": 30}, timeout=10)
+            if resp.status_code == 200:
+                pay = resp.json()
+                open_payment_link(pay.get("payment_url"))
+                st.info("Setelah bayar, tunggu webhook atau refresh setelah beberapa detik.")
+            else:
+                st.error(f"Gagal membuat transaksi: {resp.text}")
+        except Exception as e:
+            st.error(f"Gagal hubungi backend: {e}")
+
+    if col3.button("90 Hari — Rp500.000"):
+        try:
+            resp = requests.post(f"{BACKEND}/create-transaction", json={"email": st.session_state.email, "days": 90}, timeout=10)
+            if resp.status_code == 200:
+                pay = resp.json()
+                open_payment_link(pay.get("payment_url"))
+                st.info("Setelah bayar, tunggu webhook atau refresh setelah beberapa detik.")
+            else:
+                st.error(f"Gagal membuat transaksi: {resp.text}")
+        except Exception as e:
+            st.error(f"Gagal hubungi backend: {e}")
+
+    # Provide manual refresh button to re-check after payment
+    if st.button("Cek status lagi (refresh)"):
+        st.experimental_rerun()
+
     st.stop()
 
 # ==============================
-# Main UI (logged in)
+# If active => show original app UI (the rest of your code)
 # ==============================
-st.sidebar.success("Login sebagai: " + st.session_state.username)
-st.title("🚢 Freight Calculator Tongkang")
-
 # ------------------------------
 # SIDEBAR: Mode (top), Pilih Kapal, Params
 # ------------------------------
@@ -143,8 +225,6 @@ kapal_data = None
 if pilihan_kapal != "-- Kapal Baru --":
     row = get_kapal_by_name(pilihan_kapal)
     if row:
-        # unpack row safely (may have None columns)
-        # row format: (id, nama, total_cargo, consumption, angsuran, crew_cost, asuransi, docking, perawatan, sertifikat, depresiasi, charter_hire)
         _, nama, total_cargo_db, consumption_db, angsuran_db, crew_cost_db, asuransi_db, docking_db, perawatan_db, sertifikat_db, depresiasi_db, charter_hire_db = row + (None,) * (12 - len(row))
         kapal_data = dict(
             nama=nama,
@@ -162,14 +242,13 @@ if pilihan_kapal != "-- Kapal Baru --":
 
 # 3) Data Kapal (tersimpan)
 st.sidebar.markdown("### 📦 Data Kapal (Tersimpan)")
-# show read-only summary
 if kapal_data:
     st.sidebar.write(f"**Kapal:** {kapal_data.get('nama')}")
     st.sidebar.write(f"**Total Cargo (MT):** {kapal_data.get('total_cargo'):,}" if kapal_data.get('total_cargo') else "Total Cargo (MT): -")
 else:
     st.sidebar.info("Pilih kapal atau buat kapal baru")
 
-# editable fields in Data Kapal section (values default from kapal_data if available)
+# editable fields
 consumption = st.sidebar.number_input(
     "Consumption (liter/jam)", 
     value=float(kapal_data["consumption"]) if kapal_data and kapal_data.get("consumption") is not None else 120
@@ -186,7 +265,7 @@ if mode == "Owner":
 else:
     charter_hire = st.sidebar.number_input("Charter Hire (Rp/bulan)", value=float(kapal_data["charter_hire"]) if kapal_data and kapal_data.get("charter_hire") is not None else 750000000)
 
-# 4) Parameter Voyage (sementara)
+# voyage parameters
 st.sidebar.markdown("### ⚓ Parameter Voyage (Sementara)")
 speed_kosong = st.sidebar.number_input("Speed Kosong (knot)", value=3.0)
 speed_isi = st.sidebar.number_input("Speed Isi (knot)", value=4.0)
@@ -198,13 +277,10 @@ premi_nm = st.sidebar.number_input("Premi (Rp/NM)", value=50000)
 other_cost = st.sidebar.number_input("Other Cost (Rp)", value=50000000)
 port_stay = st.sidebar.number_input("Port Stay (Hari)", value=10)
 
-# ------------------------------
-# Simpan / Update / Hapus Kapal (expander)
-# ------------------------------
+# manage kapal
 with st.sidebar.expander("💾 Kelola Data Kapal"):
     nama_kapal_input = st.text_input("Nama Kapal", value=kapal_data["nama"] if kapal_data else "")
     total_cargo_input = st.number_input("Total Cargo (MT)", value=float(kapal_data["total_cargo"]) if kapal_data and kapal_data.get("total_cargo") is not None else 7500)
-
     col1, col2, col3 = st.columns(3)
     with col1:
         if st.button("Simpan / Update"):
@@ -240,7 +316,7 @@ with st.sidebar.expander("💾 Kelola Data Kapal"):
             st.rerun()
 
 # ==============================
-# Main content: Input Voyage & Results
+# Main content: Input Voyage & Results (unchanged)
 # ==============================
 st.header("📥 Input Utama Voyage")
 pol = st.text_input("Port of Loading (POL)")
@@ -249,7 +325,6 @@ pod = st.text_input("Port of Discharge (POD)")
 total_cargo = st.number_input("Total Cargo (MT)", value=float(kapal_data["total_cargo"]) if kapal_data and kapal_data.get("total_cargo") is not None else 7500)
 jarak = st.number_input("Jarak (NM)", value=630)
 
-# Perhitungan
 sailing_time = (jarak / speed_kosong) + (jarak / speed_isi)
 voyage_days = (sailing_time / 24) + port_stay
 total_consumption = (sailing_time * consumption) + (port_stay * consumption)
@@ -282,7 +357,6 @@ else:
 total_cost = sum(biaya_umum.values()) + sum(biaya_mode.values())
 cost_per_mt = total_cost / total_cargo if total_cargo else 0
 
-# Output
 st.header("📊 Hasil Perhitungan")
 st.write(f"Sailing Time (jam): {sailing_time:,.2f}")
 st.write(f"Total Voyage Days: {voyage_days:,.2f}")
@@ -312,9 +386,7 @@ for p in range(0,55,5):
 profit_df = pd.DataFrame(profit_list, columns=["Profit %","Freight / MT","Revenue","Pph","Net Profit"])
 st.table(profit_df)
 
-# ==============================
-# PDF Export (same as before)
-# ==============================
+# PDF export (same as before)
 input_data = [["POL", pol],["POD", pod],["Jarak (NM)", f"{jarak:,}"],["Total Cargo (MT)", f"{total_cargo:,}"],["Voyage Days", f"{voyage_days:,.2f} hari"]]
 results = list(biaya_mode.items()) + list(biaya_umum.items())
 results.append(["TOTAL COST", total_cost])
@@ -384,5 +456,6 @@ st.download_button("📥 Download Laporan PDF", data=pdf_buffer,
 st.sidebar.markdown("---")
 if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
+    st.session_state.email = ""
     st.session_state.username = ""
     st.experimental_rerun()

@@ -1,10 +1,6 @@
-# backend
+streamlit
 fastapi
 uvicorn
 requests
-passlib
-
-# frontend
-streamlit
 pandas
 reportlab

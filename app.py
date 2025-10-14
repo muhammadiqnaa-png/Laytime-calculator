@@ -119,7 +119,7 @@ if not st.session_state.logged_in:
                     st.session_state.email = email
                     st.session_state.username = email.split("@")[0]
                     st.success("Login berhasil")
-                    st.experimental_rerun()
+                    st.rerun()
                 else:
                     err = r.json().get("detail") if r.headers.get("content-type","").startswith("application/json") else r.text
                     st.error(err or "Login gagal")
@@ -199,7 +199,7 @@ if not status.get("active"):
 
     # Provide manual refresh button to re-check after payment
     if st.button("Cek status lagi (refresh)"):
-        st.experimental_rerun()
+        st.rerun()
 
     st.stop()
 
@@ -458,4 +458,4 @@ if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
     st.session_state.email = ""
     st.session_state.username = ""
-    st.experimental_rerun()
+    st.rerun()

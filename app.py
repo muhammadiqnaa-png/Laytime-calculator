@@ -144,7 +144,6 @@ if not st.session_state.logged_in:
                 except Exception as e:
                     st.error(f"Gagal terhubung ke backend: {e}")
     st.stop()
-
 # ==============================
 # After Login: Status & Payment
 # ==============================

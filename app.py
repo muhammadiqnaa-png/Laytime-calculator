@@ -11,7 +11,8 @@ import requests
 import os
 
 # ---------- CONFIG ----------
-BACKEND = st.secrets.get("backend_url", "https://my-backend.onrender.com")
+BACKEND = st.secrets.get("backend_url", "BACKEND_URL = "https://freight-calculator-demo.streamlit.app/backend"
+")
 DB_PATH = "data.db"  # kapal DB (local for Streamlit app)
 # ----------------------------
 

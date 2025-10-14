@@ -118,7 +118,7 @@ if not st.session_state.logged_in:
                     st.session_state.email = email
                     st.session_state.username = email.split("@")[0]
                     st.success("Login berhasil")
-                    st.rerun()
+                    st.experimental_rerun()
                 else:
                     err = r.json().get("detail") if r.headers.get("content-type","").startswith("application/json") else r.text
                     st.error(err or "Login gagal")

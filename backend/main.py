@@ -6,7 +6,7 @@ import requests, base64
 app = FastAPI()
 
 # 🔑 Ganti dengan Midtrans Server Key sandbox kamu
-MIDTRANS_SERVER_KEY = "Mid-server-IJD2MBz-xxxxxx12345abcde"
+MIDTRANS_SERVER_KEY = "Mid-server-IJD2MBz-4teBow5h67KiRyEJ"
 MIDTRANS_URL = "https://api.sandbox.midtrans.com/v2/charge"
 
 # 🔓 Ijinkan diakses dari Streamlit

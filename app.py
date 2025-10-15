@@ -112,7 +112,7 @@ if not st.session_state.logged_in:
                     st.session_state.email = email
                     st.session_state.username = email.split("@")[0]
                     st.success("Login berhasil!")
-                    st.experimental_rerun()
+                    st.rerun()
                 else:
                     st.error("Login gagal, periksa kembali email dan password.")
             except Exception as e:

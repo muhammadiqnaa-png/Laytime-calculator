@@ -1,3 +1,4 @@
+# app.py (Streamlit) - FULL ready-to-copy
 import streamlit as st
 import pandas as pd
 import sqlite3
@@ -9,8 +10,13 @@ from reportlab.lib.styles import getSampleStyleSheet
 import requests
 import os
 
+# ---------- CONFIG ----------
+BACKEND = st.secrets.get("backend_url", "https://my-backend.onrender.com")
+DB_PATH = "data.db"  # kapal DB (local for Streamlit app)
+# ----------------------------
+
 # ==============================
-# Database Setup (kapal)
+# Database Setup (kapal) - same as your original
 # ==============================
 def init_db_kapal():
     conn = sqlite3.connect(DB_PATH)
@@ -113,7 +119,7 @@ if not st.session_state.logged_in:
                     st.session_state.email = email
                     st.session_state.username = email.split("@")[0]
                     st.success("Login berhasil")
-                    st.experimental_rerun()  # ✅ fix
+                    st.experimental_rerun()
                 else:
                     err = r.json().get("detail") if r.headers.get("content-type","").startswith("application/json") else r.text
                     st.error(err or "Login gagal")
@@ -139,13 +145,8 @@ if not st.session_state.logged_in:
                 except Exception as e:
                     st.error(f"Gagal terhubung ke backend: {e}")
     st.stop()
-# ==============================
-# After Login: Status & Payment
-# ==============================
-if not st.session_state.logged_in:   # ✅ tambahan fix
-    st.warning("Silakan login dulu.")
-    st.stop()
 
+# After login: check active status
 st.sidebar.success("Login sebagai: " + st.session_state.email)
 st.title("🚢 Freight Calculator Tongkang (Demo Prabayar)")
 
@@ -196,11 +197,12 @@ if not status.get("active"):
         except Exception as e:
             st.error(f"Gagal hubungi backend: {e}")
 
-    # ✅ fix rerun
+    # Provide manual refresh button to re-check after payment
     if st.button("Cek status lagi (refresh)"):
         st.experimental_rerun()
 
     st.stop()
+
 # ==============================
 # If active => show original app UI (the rest of your code)
 # ==============================
@@ -456,4 +458,4 @@ if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
     st.session_state.email = ""
     st.session_state.username = ""
-    st.rerun()
+    st.experimental_rerun()

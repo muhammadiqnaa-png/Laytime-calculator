@@ -56,9 +56,13 @@ def create_transaction(data: dict):
 
         headers = make_headers()
         response = requests.post(MIDTRANS_URL, headers=headers, json=payload)
+print("Midtrans Response:", response.status_code, response.text)  # debug
 
-        if response.status_code != 201:
-            raise HTTPException(status_code=400, detail=f"Gagal membuat transaksi: {response.text}")
+if response.text.strip() == "":
+    raise HTTPException(status_code=400, detail="Midtrans tidak mengembalikan respons apa pun")
+
+if response.status_code not in [200, 201]:
+    raise HTTPException(status_code=response.status_code, detail=response.text)
 
         result = response.json()
         return {

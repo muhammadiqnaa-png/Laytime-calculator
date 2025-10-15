@@ -199,7 +199,7 @@ if not status.get("active"):
 
     # Provide manual refresh button to re-check after payment
     if st.button("Cek status lagi (refresh)"):
-        st.experimental_rerun()
+        st.rerun()
 
     st.stop()
 
@@ -458,4 +458,4 @@ if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
     st.session_state.email = ""
     st.session_state.username = ""
-    st.experimental_rerun()
+    st.rerun()

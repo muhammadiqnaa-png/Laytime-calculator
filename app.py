@@ -48,24 +48,24 @@ with st.form("input_form"):
 
     colA3, colA4 = st.columns([2, 1])
     with colA3:
-        pol_end_date = st.date_input("Tanggal Selesai Loading — POL", value=date.today())
+        pol_end_date = st.date_input("Tanggal Selesai Loading — POL", value=date.today(), step=60)
     with colA4:
-        pol_end_time = st.time_input("Jam Selesai — POL", value=datetime.now().time())
+        pol_end_time = st.time_input("Jam Selesai — POL", value=datetime.now().time(), step=60)
 
     st.markdown("---")
     st.subheader("Pelabuhan B — POD")
 
     colB1, colB2 = st.columns([2, 1])
     with colB1:
-        pod_start_date = st.date_input("Tanggal Mulai Laytime (Arrival / NOR) — POD", value=date.today())
+        pod_start_date = st.date_input("Tanggal Mulai Laytime (Arrival / NOR) — POD", value=date.today(), step=60)
     with colB2:
-        pod_start_time = st.time_input("Jam Mulai — POD", value=datetime.now().time())
+        pod_start_time = st.time_input("Jam Mulai — POD", value=datetime.now().time(), step=60)
 
     colB3, colB4 = st.columns([2, 1])
     with colB3:
-        pod_end_date = st.date_input("Tanggal Selesai Bongkar — POD", value=date.today())
+        pod_end_date = st.date_input("Tanggal Selesai Bongkar — POD", value=date.today(), step=60)
     with colB4:
-        pod_end_time = st.time_input("Jam Selesai — POD", value=datetime.now().time())
+        pod_end_time = st.time_input("Jam Selesai — POD", value=datetime.now().time(), step=60)
 
     submitted = st.form_submit_button("🚢 Hitung Detention")
 

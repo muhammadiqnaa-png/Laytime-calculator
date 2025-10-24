@@ -6,9 +6,9 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 
-st.set_page_config(page_title="Detention Calculator — Barge", layout="centered")
+st.set_page_config(page_title="Detention Calculator", layout="centered")
 
-st.title("⚓ Detention Calculator ")
+st.title("⚓ Detention Calculator")
 st.caption("Hitung detention gabungan POL & POD berdasarkan tanggal dan jam. Hasil bisa diunduh sebagai PDF.")
 
 def seconds_to_days(sec): return sec / 86400.0
@@ -21,8 +21,13 @@ def format_rp(x):
 
 with st.form("input_form"):
     st.subheader("Identitas & Kontrak")
-    vessel_name = st.text_input("Nama Kapal")
-    barge_name = st.text_input("Nama Tongkang")
+
+    # 👉 Kolom sejajar untuk Nama Kapal & Tongkang
+    colA, colB = st.columns(2)
+    with colA:
+        vessel_name = st.text_input("Nama Kapal")
+    with colB:
+        barge_name = st.text_input("Nama Tongkang")
 
     col1, col2 = st.columns(2)
     with col1:

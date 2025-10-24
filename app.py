@@ -9,8 +9,8 @@ from reportlab.platypus import (
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
-st.set_page_config(page_title="⚓ Detention Calculator – Barge Mode", layout="wide")
-st.title("⚓ Detention Calculator – Barge Mode")
+st.set_page_config(page_title="⚓ Detention Calculator – Barge", layout="wide")
+st.title("⚓ Detention Calculator – Barge")
 
 st.markdown("### Input Data")
 
@@ -103,7 +103,7 @@ if st.button("🚢 Hitung Detention"):
     styles.add(ParagraphStyle(name="SubHeader", fontSize=11, spaceBefore=10, spaceAfter=5, textColor=colors.darkblue))
 
     elements = []
-    elements.append(Paragraph("⚓ DETENTION REPORT – BARGE MODE", styles["CenterTitle"]))
+    elements.append(Paragraph("⚓ DETENTION REPORT – BARGE", styles["CenterTitle"]))
     elements.append(Spacer(1, 10))
 
     # Info umum

@@ -16,9 +16,9 @@ st.markdown("### Input Data")
 
 col1, col2 = st.columns(2)
 with col1:
-    vessel_name = st.text_input("Nama Kapal (TB)")
+    vessel_name = st.text_input("Vessel")
 with col2:
-    barge_name = st.text_input("Nama Tongkang")
+    barge_name = st.text_input("Barge")
 
 col3, col4 = st.columns(2)
 with col3:
@@ -28,12 +28,12 @@ with col4:
 
 col5, col6 = st.columns(2)
 with col5:
-    prorata_days = st.number_input("Free Time (Hari / Prorata)", min_value=0.0, step=0.5)
+    prorata_days = st.number_input("Prorata", min_value=0.0, step=0.5)
 with col6:
-    rate_per_day = st.number_input("Rate Detention (Rp/Hari)", min_value=0.0, step=1000000.0, format="%.0f")
+    rate_per_day = st.number_input("Rate Detention (Rp/Days)", min_value=0.0, step=1000000.0, format="%.0f")
 
 st.markdown("---")
-st.markdown("### 🅰 Pelabuhan A (POL)")
+st.markdown("### Port Of Loading")
 
 def stable_time_input(key, label):
     if key not in st.session_state:
@@ -53,7 +53,7 @@ with colA4:
     pol_end_time = stable_time_input("pol_end_time", "Jam Selesai – POL")
 
 st.markdown("---")
-st.markdown("### 🅱 Pelabuhan B (POD)")
+st.markdown("### Port Of Discharge")
 
 colB1, colB2 = st.columns(2)
 with colB1:

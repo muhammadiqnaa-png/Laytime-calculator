@@ -6,12 +6,14 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 
-st.set_page_config(page_title="Detention Calculator", layout="centered")
+st.set_page_config(page_title="Detention Calculator — Barge", layout="centered")
 
-st.title("⚓ Detention Calculator")
+st.title("⚓ Detention Calculator — Barge Mode")
 st.caption("Hitung detention gabungan POL & POD berdasarkan tanggal dan jam. Hasil bisa diunduh sebagai PDF.")
 
-def seconds_to_days(sec): return sec / 86400.0
+def seconds_to_days(sec): 
+    return sec / 86400.0
+
 def format_rp(x):
     try:
         xi = int(round(x))
@@ -22,7 +24,7 @@ def format_rp(x):
 with st.form("input_form"):
     st.subheader("Identitas & Kontrak")
 
-    # 👉 Kolom sejajar untuk Nama Kapal & Tongkang
+    # Nama Kapal & Tongkang sejajar
     colA, colB = st.columns(2)
     with colA:
         vessel_name = st.text_input("Nama Kapal")
@@ -44,11 +46,11 @@ with st.form("input_form"):
     with colA1:
         pol_start_date = st.date_input("Tanggal Mulai Laytime (Arrival / NOR) — POL", value=date.today())
     with colA2:
-        pol_start_time = st.time_input("Jam Mulai — POL", value=datetime.now().time())
+        pol_start_time = st.time_input("Jam Mulai — POL", value=datetime.now().time(), step=60)
 
     colA3, colA4 = st.columns([2, 1])
     with colA3:
-        pol_end_date = st.date_input("Tanggal Selesai Loading — POL", value=date.today(), step=60)
+        pol_end_date = st.date_input("Tanggal Selesai Loading — POL", value=date.today())
     with colA4:
         pol_end_time = st.time_input("Jam Selesai — POL", value=datetime.now().time(), step=60)
 
@@ -57,13 +59,13 @@ with st.form("input_form"):
 
     colB1, colB2 = st.columns([2, 1])
     with colB1:
-        pod_start_date = st.date_input("Tanggal Mulai Laytime (Arrival / NOR) — POD", value=date.today(), step=60)
+        pod_start_date = st.date_input("Tanggal Mulai Laytime (Arrival / NOR) — POD", value=date.today())
     with colB2:
         pod_start_time = st.time_input("Jam Mulai — POD", value=datetime.now().time(), step=60)
 
     colB3, colB4 = st.columns([2, 1])
     with colB3:
-        pod_end_date = st.date_input("Tanggal Selesai Bongkar — POD", value=date.today(), step=60)
+        pod_end_date = st.date_input("Tanggal Selesai Bongkar — POD", value=date.today())
     with colB4:
         pod_end_time = st.time_input("Jam Selesai — POD", value=datetime.now().time(), step=60)
 
@@ -89,6 +91,7 @@ if submitted:
     st.write(f"**Detention Days:** {round(detention_days, 3)} hari")
     st.write(f"**Total Biaya Detention:** {format_rp(total_cost)}")
 
+    # PDF Generator
     def generate_pdf():
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4)
@@ -116,6 +119,7 @@ if submitted:
         table.setStyle(TableStyle([
             ("BACKGROUND", (0,0), (-1,0), colors.lightgrey),
             ("GRID", (0,0), (-1,-1), 0.5, colors.grey),
+            ("ALIGN", (0,0), (-1,-1), "LEFT"),
         ]))
         story.append(table)
         doc.build(story)

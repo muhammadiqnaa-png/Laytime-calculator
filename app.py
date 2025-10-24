@@ -1,296 +1,155 @@
 import streamlit as st
-import pandas as pd
-import sqlite3
+from datetime import datetime
 from io import BytesIO
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet
-import requests
-import os
+from reportlab.lib import colors
+import math
 
-# ---------- CONFIG ----------
-BACKEND = st.secrets.get("backend_url", "https://my-backend.onrender.com")
-DB_PATH = "data.db"
-# ----------------------------
+st.set_page_config(page_title="Detention Calculator — Barge", layout="centered")
 
-# ==============================
-# Database Setup (kapal)
-# ==============================
-def init_db_kapal():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    required_cols = {
-        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
-        "nama": "TEXT UNIQUE",
-        "total_cargo": "REAL",
-        "consumption": "REAL",
-        "angsuran": "REAL",
-        "crew_cost": "REAL",
-        "asuransi": "REAL",
-        "docking": "REAL",
-        "perawatan": "REAL",
-        "sertifikat": "REAL",
-        "depresiasi": "REAL",
-        "charter_hire": "REAL"
-    }
-    c.execute(f"""
-        CREATE TABLE IF NOT EXISTS kapal (
-            {", ".join([f"{col} {dtype}" for col, dtype in required_cols.items()])}
-        )
-    """)
-    c.execute("PRAGMA table_info(kapal)")
-    existing_cols = [row[1] for row in c.fetchall()]
-    for col, dtype in required_cols.items():
-        if col not in existing_cols:
-            try:
-                if col == "id":
-                    continue
-                c.execute(f"ALTER TABLE kapal ADD COLUMN {col} {dtype}")
-            except Exception:
-                pass
-    conn.commit()
-    conn.close()
+st.title("⚓ Detention Calculator — Barge Mode")
+st.caption("Hitung detention gabungan untuk POL & POD. Hasil bisa di-download sebagai PDF.")
 
-def tambah_kapal(data):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("""
-        INSERT OR REPLACE INTO kapal (nama,total_cargo,consumption,angsuran,crew_cost,asuransi,docking,perawatan,sertifikat,depresiasi,charter_hire)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?)
-    """, data)
-    conn.commit()
-    conn.close()
-
-def hapus_kapal(nama):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("DELETE FROM kapal WHERE nama=?", (nama,))
-    conn.commit()
-    conn.close()
-
-def get_all_kapal():
-    conn = sqlite3.connect(DB_PATH)
-    try:
-        df = pd.read_sql_query("SELECT * FROM kapal", conn)
-    except Exception:
-        df = pd.DataFrame(columns=["id","nama","total_cargo","consumption","angsuran","crew_cost","asuransi","docking","perawatan","sertifikat","depresiasi","charter_hire"])
-    conn.close()
-    return df
-
-def get_kapal_by_name(nama):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT * FROM kapal WHERE nama=?", (nama,))
-    row = c.fetchone()
-    conn.close()
-    return row
-
-init_db_kapal()
-
-# ==============================
-# AUTH LOGIN / REGISTER
-# ==============================
-st.set_page_config(page_title="Freight Calculator", layout="wide")
-
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.email = ""
-    st.session_state.username = ""
-
-if not st.session_state.logged_in:
-    st.title("🔐 Login / Daftar — Freight Calculator")
-    tab1, tab2 = st.tabs(["Login", "Daftar Baru"])
-    with tab1:
-        email = st.text_input("Email", key="login_email")
-        password = st.text_input("Password", type="password", key="login_pw")
-        if st.button("Login"):
-            try:
-                r = requests.post(f"{BACKEND}/login", json={"email": email, "password": password}, timeout=10)
-                if r.status_code == 200:
-                    st.session_state.logged_in = True
-                    st.session_state.email = email
-                    st.session_state.username = email.split("@")[0]
-                    st.success("Login berhasil!")
-                    st.rerun()
-                else:
-                    st.error("Login gagal, periksa kembali email dan password.")
-            except Exception as e:
-                st.error(f"Gagal hubungi backend: {e}")
-    with tab2:
-        email_r = st.text_input("Email", key="reg_email")
-        password_r = st.text_input("Password", type="password", key="reg_pw")
-        password_r2 = st.text_input("Konfirmasi Password", type="password", key="reg_pw2")
-        if st.button("Daftar"):
-            if not email_r or not password_r:
-                st.error("Email dan password wajib diisi.")
-            elif password_r != password_r2:
-                st.error("Password konfirmasi tidak cocok.")
-            else:
-                try:
-                    r = requests.post(f"{BACKEND}/register", json={"email": email_r, "password": password_r}, timeout=10)
-                    if r.status_code == 200:
-                        st.success("Registrasi berhasil! Silakan login.")
-                    else:
-                        st.error("Gagal registrasi.")
-                except Exception as e:
-                    st.error(f"Gagal hubungi backend: {e}")
-    st.stop()
-
-# ==============================
-# MAIN APP (setelah login)
-# ==============================
-st.sidebar.success(f"Login sebagai: {st.session_state.email}")
-st.title("🚢 Freight Calculator Tongkang")
-
-# Sidebar - kapal settings
-st.sidebar.title("⚙️ Pengaturan Perhitungan")
-
-mode = st.sidebar.radio("Pilih Mode Biaya:", ["Owner", "Charter"])
-
-df_kapal = get_all_kapal()
-kapal_names = df_kapal["nama"].dropna().tolist() if not df_kapal.empty else []
-kapal_list = ["-- Kapal Baru --"] + kapal_names
-pilihan_kapal = st.sidebar.selectbox("Pilih Kapal", kapal_list)
-
-kapal_data = None
-if pilihan_kapal != "-- Kapal Baru --":
-    row = get_kapal_by_name(pilihan_kapal)
-    if row:
-        _, nama, total_cargo_db, consumption_db, angsuran_db, crew_cost_db, asuransi_db, docking_db, perawatan_db, sertifikat_db, depresiasi_db, charter_hire_db = row + (None,) * (12 - len(row))
-        kapal_data = dict(
-            nama=nama,
-            total_cargo=total_cargo_db,
-            consumption=consumption_db,
-            angsuran=angsuran_db,
-            crew_cost=crew_cost_db,
-            asuransi=asuransi_db,
-            docking=docking_db,
-            perawatan=perawatan_db,
-            sertifikat=sertifikat_db,
-            depresiasi=depresiasi_db,
-            charter_hire=charter_hire_db
-        )
-
-st.sidebar.markdown("### 📦 Data Kapal")
-if kapal_data:
-    st.sidebar.write(f"**Kapal:** {kapal_data.get('nama')}")
-else:
-    st.sidebar.info("Pilih kapal atau buat kapal baru.")
-
-# Input form kapal
-consumption = st.sidebar.number_input("Consumption (liter/jam)", value=float(kapal_data["consumption"]) if kapal_data else 120)
-if mode == "Owner":
-    angsuran = st.sidebar.number_input("Angsuran (Rp/bulan)", value=float(kapal_data["angsuran"]) if kapal_data else 750000000)
-    crew_cost = st.sidebar.number_input("Crew Cost (Rp/bulan)", value=float(kapal_data["crew_cost"]) if kapal_data else 60000000)
-    asuransi = st.sidebar.number_input("Asuransi (Rp/bulan)", value=float(kapal_data["asuransi"]) if kapal_data else 50000000)
-    docking = st.sidebar.number_input("Docking (Rp/bulan)", value=float(kapal_data["docking"]) if kapal_data else 50000000)
-    perawatan = st.sidebar.number_input("Perawatan (Rp/bulan)", value=float(kapal_data["perawatan"]) if kapal_data else 50000000)
-    sertifikat = st.sidebar.number_input("Sertifikat (Rp/bulan)", value=float(kapal_data["sertifikat"]) if kapal_data else 50000000)
-    depresiasi = st.sidebar.number_input("Depresiasi (Rp/Beli)", value=float(kapal_data["depresiasi"]) if kapal_data else 45000000000)
-else:
-    charter_hire = st.sidebar.number_input("Charter Hire (Rp/bulan)", value=float(kapal_data["charter_hire"]) if kapal_data else 750000000)
-
-st.sidebar.markdown("### ⚓ Parameter Voyage")
-speed_kosong = st.sidebar.number_input("Speed Kosong (knot)", value=3.0)
-speed_isi = st.sidebar.number_input("Speed Isi (knot)", value=4.0)
-harga_bunker = st.sidebar.number_input("Harga Bunker (Rp/liter)", value=12500)
-harga_air_tawar = st.sidebar.number_input("Harga Air Tawar (Rp/Ton)", value=120000)
-port_cost = st.sidebar.number_input("Port cost/call (Rp)", value=50000000)
-asist_tug = st.sidebar.number_input("Asist Tug (Rp)", value=35000000)
-premi_nm = st.sidebar.number_input("Premi (Rp/NM)", value=50000)
-other_cost = st.sidebar.number_input("Other Cost (Rp)", value=50000000)
-port_stay = st.sidebar.number_input("Port Stay (Hari)", value=10)
-
-# Simpan / Hapus Kapal
-with st.sidebar.expander("💾 Kelola Kapal"):
-    nama_kapal_input = st.text_input("Nama Kapal", value=kapal_data["nama"] if kapal_data else "")
-    total_cargo_input = st.number_input("Total Cargo (MT)", value=float(kapal_data["total_cargo"]) if kapal_data else 7500)
+# --- Inputs ---
+with st.form("input_form"):
+    st.subheader("Identitas & Kontrak")
+    vessel_name = st.text_input("Nama Kapal", placeholder="MV. Contoh")
+    barge_name = st.text_input("Nama Tongkang", placeholder="TB Contoh")
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("Simpan / Update"):
-            data = (
-                nama_kapal_input.strip(),
-                total_cargo_input,
-                consumption,
-                angsuran if mode == "Owner" else None,
-                crew_cost if mode == "Owner" else None,
-                asuransi if mode == "Owner" else None,
-                docking if mode == "Owner" else None,
-                perawatan if mode == "Owner" else None,
-                sertifikat if mode == "Owner" else None,
-                depresiasi if mode == "Owner" else None,
-                charter_hire if mode == "Charter" else None
-            )
-            tambah_kapal(data)
-            st.sidebar.success("✅ Data kapal disimpan.")
-            st.rerun()
+        pol = st.text_input("POL (Port of Loading)", placeholder="Contoh: Samarinda")
+        prorata_days = st.number_input("Prorata / Free time (hari)", min_value=0.0, value=8.0, step=0.5)
     with col2:
-        if pilihan_kapal != "-- Kapal Baru --" and st.button("❌ Hapus"):
-            hapus_kapal(nama_kapal_input.strip())
-            st.sidebar.warning("Kapal dihapus.")
-            st.rerun()
+        pod = st.text_input("POD (Port of Discharge)", placeholder="Contoh: Gresik")
+        rate_per_day = st.number_input("Rate Detention (Rp / hari)", min_value=0.0, value=30000000.0, step=100000.0, format="%.2f")
 
-# ==============================
-# Main voyage calculation
-# ==============================
-st.header("📥 Input Utama Voyage")
-pol = st.text_input("Port of Loading (POL)")
-pod = st.text_input("Port of Discharge (POD)")
-total_cargo = st.number_input("Total Cargo (MT)", value=float(kapal_data["total_cargo"]) if kapal_data else 7500)
-jarak = st.number_input("Jarak (NM)", value=630)
+    st.markdown("---")
+    st.subheader("Pelabuhan A — POL (isi sesuai POL)")
+    pol_start = st.datetime_input("Mulai Laytime (Arrival / NOR) — POL", value=datetime.now())
+    pol_end = st.datetime_input("Selesai Loading — POL", value=datetime.now())
 
-sailing_time = (jarak / speed_kosong) + (jarak / speed_isi)
-voyage_days = (sailing_time / 24) + port_stay
-total_consumption = (sailing_time * consumption) + (port_stay * consumption)
+    st.markdown("---")
+    st.subheader("Pelabuhan B — POD (isi sesuai POD)")
+    pod_start = st.datetime_input("Mulai Laytime (Arrival / NOR) — POD", value=datetime.now())
+    pod_end = st.datetime_input("Selesai Bongkar — POD", value=datetime.now())
 
-biaya_umum = {
-    "Bunker BBM": total_consumption * harga_bunker,
-    "Air Tawar": (voyage_days * 2) * harga_air_tawar,
-    "Port Cost": port_cost * 2,
-    "Premi": premi_nm * jarak,
-    "Asist": asist_tug
-}
+    submitted = st.form_submit_button("Hitung Detention")
 
-if mode == "Owner":
-    biaya_mode = {
-        "Angsuran": (angsuran / 30) * voyage_days,
-        "Crew Cost": (crew_cost / 30) * voyage_days,
-        "Asuransi": (asuransi / 30) * voyage_days,
-        "Docking": (docking / 30) * voyage_days,
-        "Perawatan": (perawatan / 30) * voyage_days,
-        "Sertifikat": (sertifikat / 30) * voyage_days,
-        "Depresiasi": ((depresiasi / 15) / 12 / 30) * voyage_days,
-        "Other": other_cost
+# --- Calculation helpers ---
+def seconds_to_days_hours_str(sec):
+    days = sec / 86400.0
+    return days
+
+def format_rp(x):
+    try:
+        xi = int(round(x))
+        return "Rp {:,}".format(xi).replace(",", ".")
+    except:
+        return f"Rp {x}"
+
+if submitted:
+    # Validate datetimes: if end < start, show warning but still compute absolute durations
+    pol_delta = (pol_end - pol_start).total_seconds()
+    pod_delta = (pod_end - pod_start).total_seconds()
+
+    if pol_delta < 0:
+        st.warning("Perhatian: 'Selesai Loading — POL' lebih awal dari 'Mulai Laytime — POL'. Menggunakan nilai absolut durasi.")
+        pol_delta = abs(pol_delta)
+    if pod_delta < 0:
+        st.warning("Perhatian: 'Selesai Bongkar — POD' lebih awal dari 'Mulai Laytime — POD'. Menggunakan nilai absolut durasi.")
+        pod_delta = abs(pod_delta)
+
+    # Convert to days (float)
+    pol_days = seconds_to_days_hours_str(pol_delta)
+    pod_days = seconds_to_days_hours_str(pod_delta)
+    total_days_used = pol_days + pod_days
+
+    # Detention calculation
+    detention_days = max(0.0, total_days_used - prorata_days)
+    total_cost = detention_days * rate_per_day
+
+    # round values sensibly
+    pol_days_r = round(pol_days, 3)
+    pod_days_r = round(pod_days, 3)
+    total_days_r = round(total_days_used, 3)
+    detention_days_r = round(detention_days, 3)
+    total_cost_r = round(total_cost, 0)
+
+    # --- Output display ---
+    st.markdown("### Hasil Perhitungan")
+    st.write(f"**Nama Kapal:** {vessel_name or '-'}  \n**Nama Tongkang:** {barge_name or '-'}")
+    st.write(f"**POL:** {pol or '-'}  \n**POD:** {pod or '-'}")
+    st.markdown("---")
+
+    st.subheader("Ringkasan Durasi")
+    st.write(f"- Durasi di POL: **{pol_days_r} hari**  (dari {pol_start} sampai {pol_end})")
+    st.write(f"- Durasi di POD: **{pod_days_r} hari**  (dari {pod_start} sampai {pod_end})")
+    st.write(f"- **Total Hari Terpakai (POL + POD): {total_days_r} hari**")
+
+    st.markdown("---")
+    st.subheader("Perhitungan Detention")
+    st.write(f"- Free Time (Prorata): **{prorata_days} hari**")
+    st.write(f"- Detention (hari) = max(0, Total Hari - Prorata) = **{detention_days_r} hari**")
+    st.write(f"- Rate Detention: **{format_rp(rate_per_day)} / hari**")
+    st.write(f"### Total Biaya Detention: **{format_rp(total_cost_r)}**")
+
+    # Breakdown table
+    st.markdown("---")
+    st.subheader("Breakdown")
+    breakdown = {
+        "Item": ["POL Duration (hari)", "POD Duration (hari)", "Total Days", "Prorata (hari)", "Detention Days", "Rate / hari", "Total Cost"],
+        "Value": [f"{pol_days_r}", f"{pod_days_r}", f"{total_days_r}", f"{prorata_days}", f"{detention_days_r}", f"{format_rp(rate_per_day)}", f"{format_rp(total_cost_r)}"]
     }
+    st.table(breakdown)
+
+    # --- Create PDF ---
+    def create_pdf_bytes():
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        styles = getSampleStyleSheet()
+        story = []
+
+        story.append(Paragraph("Detention Calculator — Barge Mode", styles["Title"]))
+        story.append(Paragraph("", styles["Normal"]))
+        story.append(Paragraph(f"Nama Kapal: {vessel_name or '-'}", styles["Normal"]))
+        story.append(Paragraph(f"Nama Tongkang: {barge_name or '-'}", styles["Normal"]))
+        story.append(Paragraph(f"POL: {pol or '-'}", styles["Normal"]))
+        story.append(Paragraph(f"POD: {pod or '-'}", styles["Normal"]))
+        story.append(Spacer(1, 10))
+
+        data = [
+            ["Item", "Keterangan / Value"],
+            ["Durasi di POL (hari)", f"{pol_days_r}"],
+            ["Durasi di POD (hari)", f"{pod_days_r}"],
+            ["Total Hari Terpakai", f"{total_days_r}"],
+            ["Prorata (Free time) hari", f"{prorata_days}"],
+            ["Detention Days", f"{detention_days_r}"],
+            ["Rate per hari", f"{format_rp(rate_per_day)}"],
+            ["Total Biaya Detention", f"{format_rp(total_cost_r)}"]
+        ]
+
+        tbl = Table(data, hAlign="LEFT", colWidths=[200, 260])
+        tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#eeeeee")),
+            ("GRID", (0,0), (-1,-1), 0.5, colors.grey),
+            ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+            ("LEFTPADDING", (0,0), (-1,-1), 6),
+            ("RIGHTPADDING", (0,0), (-1,-1), 6),
+        ]))
+        story.append(tbl)
+        story.append(Spacer(1, 12))
+        story.append(Paragraph("Disclaimer: Perhitungan menggunakan asumsi total durasi = durasi POL + durasi POD. Sesuaikan jika aturan kontrak berbeda.", styles["Italic"]))
+        doc.build(story)
+        buffer.seek(0)
+        return buffer.read()
+
+    pdf_bytes = create_pdf_bytes()
+    st.download_button("📄 Download Hasil (PDF)", data=pdf_bytes, file_name="detention_report.pdf", mime="application/pdf")
+
+    st.success("Selesai — perhitungan berhasil dibuat. Cek tampilan dan PDF-nya ya bro.")
+    st.caption("Catatan: jika aturan kontrak beda (mis. hitung continuous dari arrival POL sampai selesai POD), beri tau aku dan aku ubah logikanya.")
+
 else:
-    biaya_mode = {"Charter Hire": (charter_hire / 30) * voyage_days, "Other": other_cost}
-
-total_cost = sum(biaya_umum.values()) + sum(biaya_mode.values())
-cost_per_mt = total_cost / total_cargo if total_cargo else 0
-
-st.header("📊 Hasil Perhitungan")
-st.write(f"Sailing Time (jam): {sailing_time:,.2f}")
-st.write(f"Total Voyage Days: {voyage_days:,.2f}")
-st.write(f"Total Consumption (liter): {total_consumption:,.0f}")
-
-st.subheader(f"💰 Biaya Mode ({mode})")
-for k, v in biaya_mode.items():
-    st.write(f"- {k}: Rp {v:,.0f}")
-
-st.subheader("💰 Biaya Umum")
-for k, v in biaya_umum.items():
-    st.write(f"- {k}: Rp {v:,.0f}")
-
-st.subheader("🧮 Total Cost")
-st.write(f"TOTAL COST: Rp {total_cost:,.0f}")
-st.subheader("🧮 Cost per MT")
-st.write(f"FREIGHT: Rp {cost_per_mt:,.0f} / MT")
-
-# Logout
-st.sidebar.markdown("---")
-if st.sidebar.button("Logout"):
-    st.session_state.logged_in = False
-    st.session_state.email = ""
-    st.session_state.username = ""
-    st.rerun()
+    st.info("Isi form di atas lalu klik *Hitung Detention* untuk melihat hasil dan mendownload PDF.")

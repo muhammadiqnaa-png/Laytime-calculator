@@ -3,9 +3,11 @@ from datetime import datetime, timedelta
 import math
 from io import BytesIO
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+)
 from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 st.set_page_config(page_title="⚓ Detention Calculator – Barge Mode", layout="wide")
 st.title("⚓ Detention Calculator – Barge Mode")
@@ -14,7 +16,7 @@ st.markdown("### Input Data")
 
 col1, col2 = st.columns(2)
 with col1:
-    vessel_name = st.text_input("Nama Kapal")
+    vessel_name = st.text_input("Nama Kapal (TB)")
 with col2:
     barge_name = st.text_input("Nama Tongkang")
 
@@ -33,7 +35,6 @@ with col6:
 st.markdown("---")
 st.markdown("### 🅰 Pelabuhan A (POL)")
 
-# ===== FIX: SIMPAN JAM DI SESSION STATE =====
 def stable_time_input(key, label):
     if key not in st.session_state:
         st.session_state[key] = datetime.now().time()
@@ -75,7 +76,11 @@ if st.button("🚢 Hitung Detention"):
     pod_start = datetime.combine(pod_start_date, pod_start_time)
     pod_end = datetime.combine(pod_end_date, pod_end_time)
 
-    total_duration = (pol_end - pol_start) + (pod_end - pod_start)
+    # Durasi POL dan POD
+    pol_duration = (pol_end - pol_start)
+    pod_duration = (pod_end - pod_start)
+
+    total_duration = pol_duration + pod_duration
     total_hours = total_duration.total_seconds() / 3600
     total_days = total_hours / 24
 
@@ -83,6 +88,8 @@ if st.button("🚢 Hitung Detention"):
     detention_cost = detention_days * rate_per_day
 
     st.subheader("📊 Hasil Perhitungan")
+    st.write(f"**Total Durasi POL:** {pol_duration.total_seconds()/3600:.2f} jam")
+    st.write(f"**Total Durasi POD:** {pod_duration.total_seconds()/3600:.2f} jam")
     st.write(f"**Total Hari Pemakaian:** {total_days:.2f} hari")
     st.write(f"**Free Time (Prorata):** {prorata_days:.2f} hari")
     st.write(f"**Detention Days:** {detention_days:.2f} hari")
@@ -90,43 +97,90 @@ if st.button("🚢 Hitung Detention"):
 
     # ===== PDF EXPORT =====
     pdf_buffer = BytesIO()
-    doc = SimpleDocTemplate(pdf_buffer, pagesize=A4)
+    doc = SimpleDocTemplate(pdf_buffer, pagesize=A4, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=30)
     styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name="CenterTitle", alignment=1, fontSize=14, spaceAfter=10))
+    styles.add(ParagraphStyle(name="SubHeader", fontSize=11, spaceBefore=10, spaceAfter=5, textColor=colors.darkblue))
+
     elements = []
+    elements.append(Paragraph("⚓ DETENTION REPORT – BARGE MODE", styles["CenterTitle"]))
+    elements.append(Spacer(1, 10))
 
-    elements.append(Paragraph("⚓ Detention Report – Barge Mode", styles["Heading1"]))
-    elements.append(Spacer(1, 12))
-
-    data = [
-        ["Nama Kapal", vessel_name],
-        ["Nama Tongkang", barge_name],
-        ["POL", pol],
-        ["POD", pod],
-        ["Free Time (Hari)", f"{prorata_days:.2f}"],
-        ["Rate Detention (Rp/Hari)", f"Rp {rate_per_day:,.0f}"],
-        ["Total Hari Pemakaian", f"{total_days:.2f}"],
-        ["Detention Days", f"{detention_days:.2f}"],
-        ["Total Biaya Detention", f"Rp {detention_cost:,.0f}"],
+    # Info umum
+    elements.append(Paragraph("<b>Informasi Kapal</b>", styles["SubHeader"]))
+    data_info = [
+        ["Tug Boat (TB)", vessel_name],
+        ["Tongkang (Barge)", barge_name],
+        ["POL (Port of Loading)", pol],
+        ["POD (Port of Discharge)", pod],
+        ["Free Time (Prorata)", f"{prorata_days:.2f} Hari"],
+        ["Rate Detention", f"Rp {rate_per_day:,.0f} / Hari"],
     ]
-
-    table = Table(data, colWidths=[200, 300])
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+    table_info = Table(data_info, colWidths=[180, 320])
+    table_info.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
         ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
     ]))
+    elements.append(table_info)
+    elements.append(Spacer(1, 10))
 
-    elements.append(table)
+    # POL Section
+    elements.append(Paragraph("<b>Pelabuhan A (POL)</b>", styles["SubHeader"]))
+    data_pol = [
+        ["Mulai Laytime (Arrival/NOR – POL)", f"{pol_start.strftime('%d %b %Y %H:%M')}"],
+        ["Selesai Loading (POL)", f"{pol_end.strftime('%d %b %Y %H:%M')}"],
+        ["Durasi POL", f"{pol_duration.total_seconds()/3600:.2f} Jam ({pol_duration.total_seconds()/(3600*24):.2f} Hari)"],
+    ]
+    table_pol = Table(data_pol, colWidths=[250, 250])
+    table_pol.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+    ]))
+    elements.append(table_pol)
+    elements.append(Spacer(1, 10))
+
+    # POD Section
+    elements.append(Paragraph("<b>Pelabuhan B (POD)</b>", styles["SubHeader"]))
+    data_pod = [
+        ["Mulai Laytime (Arrival/NOR – POD)", f"{pod_start.strftime('%d %b %Y %H:%M')}"],
+        ["Selesai Bongkar (POD)", f"{pod_end.strftime('%d %b %Y %H:%M')}"],
+        ["Durasi POD", f"{pod_duration.total_seconds()/3600:.2f} Jam ({pod_duration.total_seconds()/(3600*24):.2f} Hari)"],
+    ]
+    table_pod = Table(data_pod, colWidths=[250, 250])
+    table_pod.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+    ]))
+    elements.append(table_pod)
+    elements.append(Spacer(1, 10))
+
+    # Summary Section
+    elements.append(Paragraph("<b>Perhitungan Akhir</b>", styles["SubHeader"]))
+    data_summary = [
+        ["Total Durasi", f"{total_hours:.2f} Jam ({total_days:.2f} Hari)"],
+        ["Free Time (Prorata)", f"{prorata_days:.2f} Hari"],
+        ["Detention Days", f"{detention_days:.2f} Hari"],
+        ["Total Biaya Detention", f"Rp {detention_cost:,.0f}"],
+    ]
+    table_summary = Table(data_summary, colWidths=[250, 250])
+    table_summary.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('BACKGROUND', (0, 3), (-1, 3), colors.whitesmoke),
+        ('TEXTCOLOR', (0, 3), (-1, 3), colors.red),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+    ]))
+    elements.append(table_summary)
+
     doc.build(elements)
     pdf_data = pdf_buffer.getvalue()
 
     st.download_button(
         label="📄 Download PDF Report",
         data=pdf_data,
-        file_name="Detention_Report.pdf",
+        file_name=f"Detention_Report_{vessel_name or 'Vessel'}.pdf",
         mime="application/pdf"
     )

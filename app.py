@@ -5,6 +5,9 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.graphics.barcode import qr
+from reportlab.graphics.shapes import Drawing
+import pandas as pd
 
 st.set_page_config(page_title="⚓ Voyage Report", layout="wide")
 st.title("⚓ Voyage Report – Detention / Demurrage Calculator")
@@ -26,8 +29,13 @@ def format_rp(x):
     except:
         return f"Rp {x}"
 
-# ===== PDF Builder =====
-def build_pdf(ctx):
+# ===== PDF Builder (ditambah parameter excel_link untuk QR) =====
+def build_pdf(ctx, excel_link=None):
+    """
+    Build PDF dari context ctx.
+    Jika excel_link diberikan, PDF akan menyertakan QR code yang mengarah ke excel_link.
+    NOTE: excel_link sebaiknya berupa URL publik (http(s)...) saat dideploy, agar QR dapat di-scan dari HP.
+    """
     buf = BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=30)
     styles = getSampleStyleSheet()
@@ -93,7 +101,21 @@ def build_pdf(ctx):
         ("BACKGROUND", (0,5), (-1,5), colors.whitesmoke),
         ("TEXTCOLOR", (0,5), (-1,5), colors.red)
     ]))
-    elems += [Paragraph("<b>Perhitungan Akhir</b>", styles["SubHeader"]), t_sum]
+    elems += [Paragraph("<b>Perhitungan Akhir</b>", styles["SubHeader"]), t_sum, Spacer(1,12)]
+
+    # Tambahkan QR jika excel_link tersedia
+    if excel_link:
+        elems.append(Paragraph("<b>Scan QR untuk versi Excel yang dapat diedit:</b>", styles["Normal"]))
+        try:
+            qr_code = qr.QrCodeWidget(excel_link)
+            qr_draw = Drawing(70, 70)
+            qr_draw.add(qr_code)
+            elems.append(Spacer(1,6))
+            elems.append(qr_draw)
+        except Exception as e:
+            # jika pembuatan QR gagal, tetap lanjut tanpa menghentikan build PDF
+            elems.append(Paragraph(f"(QR gagal dibuat: {e})", styles["Normal"]))
+
     doc.build(elems)
     buf.seek(0)
     return buf.read()
@@ -107,6 +129,10 @@ if "calc_done" not in st.session_state:
     st.session_state.calc_done = False
 if "pdf_data" not in st.session_state:
     st.session_state.pdf_data = None
+if "excel_data" not in st.session_state:
+    st.session_state.excel_data = None
+if "excel_filename" not in st.session_state:
+    st.session_state.excel_filename = None
 
 # ===== Input Header =====
 st.header("📥 Data Utama")
@@ -198,7 +224,56 @@ if st.button("⚙️ Calculate Laytime"):
         "detention_days": detention_days, "total_cost": total_cost
     }
 
-    pdf_data = build_pdf(ctx)
+    # ===== Generate Excel otomatis (POL, POD, Summary) =====
+    # Buat DataFrame untuk sheet
+    df_pol = pd.DataFrame(ctx["pol_rows"])
+    df_pod = pd.DataFrame(ctx["pod_rows"])
+    summary_df = pd.DataFrame({
+        "Parameter": ["Durasi POL (jam)", "Durasi POD (jam)", "Total Jam", "Total Hari", "Prorata (hari)", "Demurrage Days", "Total Biaya (Rp)"],
+        "Nilai": [pol_hours, pod_hours, total_hours, total_days, prorata, detention_days, total_cost]
+    })
+
+    excel_buf = BytesIO()
+    # pakai engine xlsxwriter (biasanya tersedia). Jika tidak tersedia, pandas akan pakai openpyxl.
+    with pd.ExcelWriter(excel_buf, engine="xlsxwriter") as writer:
+        # Pastikan kolom tanggal/waktu tersimpan sebagai string agar mudah dibaca di Excel
+        if not df_pol.empty:
+            df_pol2 = df_pol.copy()
+            df_pol2["Date"] = df_pol2["Date"].apply(lambda d: d.strftime("%Y-%m-%d"))
+            df_pol2["Time"] = df_pol2["Time"].apply(lambda t: t.strftime("%H:%M"))
+            df_pol2.to_excel(writer, index=False, sheet_name="POL")
+        else:
+            pd.DataFrame().to_excel(writer, index=False, sheet_name="POL")
+
+        if not df_pod.empty:
+            df_pod2 = df_pod.copy()
+            df_pod2["Date"] = df_pod2["Date"].apply(lambda d: d.strftime("%Y-%m-%d"))
+            df_pod2["Time"] = df_pod2["Time"].apply(lambda t: t.strftime("%H:%M"))
+            df_pod2.to_excel(writer, index=False, sheet_name="POD")
+        else:
+            pd.DataFrame().to_excel(writer, index=False, sheet_name="POD")
+
+        summary_df.to_excel(writer, index=False, sheet_name="Summary")
+
+    excel_buf.seek(0)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    excel_filename = f"Laytime_Report_{timestamp}.xlsx"
+
+    # Simpan ke session_state agar tombol download tersedia
+    st.session_state.excel_data = excel_buf.getvalue()
+    st.session_state.excel_filename = excel_filename
+
+    # === Prepare excel_link untuk QR di PDF ===
+    # 1) Saat pengembangan lokal: kamu bisa gunakan file:// path (terbatas hanya local)
+    #    contoh: excel_link = f"file:///C:/somepath/{excel_filename}"
+    # 2) Pada deploy publik (direkomendasikan): ganti excel_link jadi URL download publik
+    #    contoh: excel_link = f"https://myapp.domain/download?file={excel_filename}"
+    #
+    # Untuk sekarang saya set ke placeholder nama file — ganti saat deploy.
+    excel_link = f"{excel_filename}"  # <-- ganti ini ke URL publik setelah deploy agar QR bekerja dari HP
+
+    # ===== Build PDF (dengan QR) =====
+    pdf_data = build_pdf(ctx, excel_link=excel_link)
     st.session_state.pdf_data = pdf_data
     st.session_state.calc_done = True
     st.session_state.ctx = ctx
@@ -214,9 +289,29 @@ if st.session_state.calc_done:
     st.write(f"Demurrage Days: **{ctx['detention_days']:.2f} hari**")
     st.write(f"Total Demurrage: **{format_rp(ctx['total_cost'])}**")
 
+    # Tombol download PDF (seperti semula)
     st.download_button(
         "📄 Download PDF",
         st.session_state.pdf_data,
         "Laytime_Report.pdf",
         "application/pdf"
+    )
+
+    # Tombol download Excel baru
+    if st.session_state.excel_data and st.session_state.excel_filename:
+        st.download_button(
+            "📊 Download Excel (versi edit)",
+            st.session_state.excel_data,
+            st.session_state.excel_filename,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+    # Informasi kecil tentang QR
+    st.markdown(
+        """
+        **Catatan QR:**  
+        - QR yang terbit di PDF berisi teks/URL sesuai `excel_link` pada waktu pembuatan.
+        - Agar QR dapat di-scan dari HP dan langsung membuka file Excel, ubah `excel_link` di kode menjadi URL download publik (contoh: `https://your-app.domain/download?file=Laytime_Report_YYYYMMDD_HHMMSS.xlsx`).  
+        - Jika belum dideploy, QR akan berisi nama file lokal (placeholder).
+        """
     )

@@ -44,9 +44,10 @@ def build_pdf(ctx, excel_link=None):
     info = [
         ["Tug Boat", ctx.get("tugboat","")],
         ["Barge", ctx.get("barge","")],
+        ["Shipper", ctx.get("shipper","")],
         ["POL", ctx.get("pol","")],
         ["POD", ctx.get("pod","")],
-        ["Shipper", ctx.get("shipper","")],
+        ["Cargo", ctx.get("Cargo (MT)","")],
         ["Laycan", ctx.get("laycan","")],
         ["Prorata (Free Time)", f"{ctx['prorata']:.2f} Hari"],
         ["Rate Demurrage", f"{format_rp(ctx['rate_per_day'])}/Hari"],

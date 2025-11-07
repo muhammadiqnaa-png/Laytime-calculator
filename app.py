@@ -8,9 +8,9 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import pandas as pd
 
 st.set_page_config(page_title="⚓ Voyage Report", layout="wide")
-st.title("⚓ Voyage Report – Laytime Calculator")
+st.title("⚓ Voyage Report – Laytime Calculator (Manual Start/Stop)")
 
-# ===== Helper =====
+# ---------------- Helpers ----------------
 def default_time():
     return time(8, 0)
 
@@ -26,13 +26,13 @@ def format_rp(x):
     except:
         return f"Rp {x}"
 
-# ===== PDF Builder =====
+# ---------------- PDF builder (no QR) ----------------
 def build_pdf(ctx):
     buf = BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=30)
+    doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=28, leftMargin=28, topMargin=28, bottomMargin=28)
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(name="CenterTitle", alignment=1, fontSize=14, spaceAfter=10))
-    styles.add(ParagraphStyle(name="SubHeader", fontSize=11, spaceBefore=8, spaceAfter=6, textColor=colors.darkblue))
+    styles.add(ParagraphStyle(name="CenterTitle", alignment=1, fontSize=14, spaceAfter=8))
+    styles.add(ParagraphStyle(name="SubHeader", fontSize=11, spaceBefore=6, spaceAfter=6, textColor=colors.darkblue))
     elems = []
 
     elems.append(Paragraph("⚓ VOYAGE REPORT – LAYTIME CALCULATION", styles["CenterTitle"]))
@@ -47,31 +47,29 @@ def build_pdf(ctx):
         ["Free Time", f"{ctx['prorata']:.2f} Hari"],
         ["Rate Demurrage", f"{format_rp(ctx['rate_per_day'])}/Hari"],
     ]
-    t_info = Table(info, colWidths=[150, 350])
-    t_info.setStyle(TableStyle([
-        ("GRID", (0,0), (-1,-1), 0.3, colors.grey),
-        ("FONTNAME", (0,0), (-1,-1), "Helvetica"),
-        ("FONTSIZE", (0,0), (-1,-1), 10)
-    ]))
+    t_info = Table(info, colWidths=[120, 350])
+    t_info.setStyle(TableStyle([("GRID", (0,0), (-1,-1), 0.25, colors.grey),
+                                ("FONTNAME", (0,0), (-1,-1), "Helvetica"),
+                                ("FONTSIZE", (0,0), (-1,-1), 9)]))
     elems += [Spacer(1,6), Paragraph("<b>Informasi Umum</b>", styles["SubHeader"]), t_info, Spacer(1,10)]
 
     def section(title, rows):
         data = [["No", "Date", "Time", "Status", "Duration (Hours)"]]
         for i, r in enumerate(rows, start=1):
-            data.append([
-                str(i),
-                r["Date"].strftime("%d %b %Y"),
-                r["Time"].strftime("%H:%M"),
-                r["Status"],
-                f"{r['Duration']:.2f}" if "Duration" in r else "-"
-            ])
-        t = Table(data, colWidths=[30, 90, 60, 280, 90])
-        t.setStyle(TableStyle([
-            ("GRID", (0,0), (-1,-1), 0.3, colors.grey),
-            ("BACKGROUND", (0,0), (-1,0), colors.lightgrey),
-            ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
-            ("FONTSIZE", (0,0), (-1,-1), 9)
-        ]))
+            dur = r.get("Duration")
+            dur_display = "-" if dur is None or (isinstance(dur, float) and (pd.isna(dur) or dur==0.0)) else f"{dur:.2f}"
+            data.append([str(i),
+                         r["Date"].strftime("%d %b %Y"),
+                         r["Time"].strftime("%H:%M"),
+                         r["Status"],
+                         dur_display
+                        ])
+        colw = [30, 90, 60, 270, 90]
+        t = Table(data, colWidths=colw, repeatRows=1)
+        t.setStyle(TableStyle([("GRID", (0,0), (-1,-1), 0.25, colors.grey),
+                               ("BACKGROUND", (0,0), (-1,0), colors.lightgrey),
+                               ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+                               ("FONTSIZE", (0,0), (-1,-1), 9)]))
         elems.append(Paragraph(f"<b>{title}</b>", styles["SubHeader"]))
         elems.append(t)
         elems.append(Spacer(1,8))
@@ -87,25 +85,32 @@ def build_pdf(ctx):
         ["Demurrage Days", f"{ctx['detention_days']:.2f} hari"],
         ["Total Biaya", format_rp(ctx['total_cost'])]
     ]
-    t_sum = Table(summary, colWidths=[200, 300])
-    t_sum.setStyle(TableStyle([
-        ("GRID", (0,0), (-1,-1), 0.3, colors.grey),
-        ("BACKGROUND", (0,5), (-1,5), colors.whitesmoke),
-        ("TEXTCOLOR", (0,5), (-1,5), colors.red)
-    ]))
-    elems += [Paragraph("<b>Perhitungan Akhir</b>", styles["SubHeader"]), t_sum, Spacer(1,12)]
+    t_sum = Table(summary, colWidths=[180, 300])
+    t_sum.setStyle(TableStyle([("GRID", (0,0), (-1,-1), 0.25, colors.grey),
+                               ("BACKGROUND", (0,5), (-1,5), colors.whitesmoke),
+                               ("TEXTCOLOR", (0,5), (-1,5), colors.red),
+                               ("FONTNAME", (0,0), (-1,-1), "Helvetica")]))
+    elems += [Paragraph("<b>Perhitungan Akhir</b>", styles["SubHeader"]), t_sum, Spacer(1,6)]
 
     doc.build(elems)
     buf.seek(0)
     return buf.read()
 
-# ===== Session =====
+# ---------------- Session state defaults ----------------
 if "pol_rows" not in st.session_state:
     st.session_state.pol_rows = []
 if "pod_rows" not in st.session_state:
     st.session_state.pod_rows = []
+if "calc_done" not in st.session_state:
+    st.session_state.calc_done = False
+if "pdf_data" not in st.session_state:
+    st.session_state.pdf_data = None
+if "excel_data" not in st.session_state:
+    st.session_state.excel_data = None
+if "excel_filename" not in st.session_state:
+    st.session_state.excel_filename = None
 
-# ===== Input Data Utama =====
+# ---------------- Input header ----------------
 st.header("📥 Data Utama")
 col1, col2 = st.columns(2)
 with col1:
@@ -123,71 +128,126 @@ with col3:
 with col4:
     rate_per_day = st.number_input("Rate Demurrage (Rp/Hari)", 0.0, step=100000.0, value=0.0)
 
+st.markdown("**Catatan:** Isi `Status` bebas ketik. Tandai **Start** dan **Stop** dengan checkbox pada tiap baris (kanan). Sistem akan pasangan Start→Stop berurutan untuk menghitung durasi (jam).")
 st.markdown("---")
 
-# ===== Input POL =====
+# ---------------- POL input (manual rows with Start/Stop) ----------------
 st.subheader("1️⃣ Voyage Events – POL")
 if st.button("➕ Tambah Event POL"):
-    st.session_state.pol_rows.append({"Date": date.today(), "Time": default_time(), "Status": "", "Duration": 0.0})
+    st.session_state.pol_rows.append({
+        "Date": date.today(), "Time": default_time(), "Status": "", "Start": False, "Stop": False, "Duration": None
+    })
 
 new_pol = []
 for i, row in enumerate(st.session_state.pol_rows):
-    c = st.columns([0.2, 2, 1, 2, 1])
-    c[0].markdown(f"**{i+1}**")
-    d = c[1].date_input("", row["Date"], key=f"pol_date_{i}")
-    t = c[2].time_input("", row["Time"], key=f"pol_time_{i}")
-    s = c[3].text_input("", row["Status"], key=f"pol_status_{i}")
-    rem = c[4].button("❌", key=f"pol_del_{i}")
+    row.setdefault("Date", date.today())
+    row.setdefault("Time", default_time())
+    row.setdefault("Status", "")
+    row.setdefault("Start", False)
+    row.setdefault("Stop", False)
+    row.setdefault("Duration", None)
+
+    cols = st.columns([0.3, 2, 1, 2, 0.7, 0.6])
+    cols[0].markdown(f"**{i+1}**")
+    d = cols[1].date_input("", row["Date"], key=f"pol_date_{i}")
+    t = cols[2].time_input("", row["Time"], key=f"pol_time_{i}")
+    s = cols[3].text_input("", row["Status"], key=f"pol_status_{i}")
+    start_cb = cols[4].checkbox("Start", value=row["Start"], key=f"pol_start_{i}")
+    stop_cb = cols[5].checkbox("Stop", value=row["Stop"], key=f"pol_stop_{i}")
+    rem = st.button("❌", key=f"pol_del_{i}_btn")
+    # if remove pressed, skip adding this row to new_pol
     if not rem:
-        new_pol.append({"Date": d, "Time": t, "Status": s})
+        new_pol.append({"Date": d, "Time": t, "Status": s, "Start": start_cb, "Stop": stop_cb, "Duration": None})
 st.session_state.pol_rows = new_pol
 
 st.markdown("---")
 
-# ===== Input POD =====
+# ---------------- POD input ----------------
 st.subheader("2️⃣ Voyage Events – POD")
 if st.button("➕ Tambah Event POD"):
-    st.session_state.pod_rows.append({"Date": date.today(), "Time": default_time(), "Status": "", "Duration": 0.0})
+    st.session_state.pod_rows.append({
+        "Date": date.today(), "Time": default_time(), "Status": "", "Start": False, "Stop": False, "Duration": None
+    })
 
 new_pod = []
 for i, row in enumerate(st.session_state.pod_rows):
-    c = st.columns([0.2, 2, 1, 2, 1])
-    c[0].markdown(f"**{i+1}**")
-    d = c[1].date_input("", row["Date"], key=f"pod_date_{i}")
-    t = c[2].time_input("", row["Time"], key=f"pod_time_{i}")
-    s = c[3].text_input("", row["Status"], key=f"pod_status_{i}")
-    rem = c[4].button("❌", key=f"pod_del_{i}")
+    row.setdefault("Date", date.today())
+    row.setdefault("Time", default_time())
+    row.setdefault("Status", "")
+    row.setdefault("Start", False)
+    row.setdefault("Stop", False)
+    row.setdefault("Duration", None)
+
+    cols = st.columns([0.3, 2, 1, 2, 0.7, 0.6])
+    cols[0].markdown(f"**{i+1}**")
+    d = cols[1].date_input("", row["Date"], key=f"pod_date_{i}")
+    t = cols[2].time_input("", row["Time"], key=f"pod_time_{i}")
+    s = cols[3].text_input("", row["Status"], key=f"pod_status_{i}")
+    start_cb = cols[4].checkbox("Start", value=row["Start"], key=f"pod_start_{i}")
+    stop_cb = cols[5].checkbox("Stop", value=row["Stop"], key=f"pod_stop_{i}")
+    rem = st.button("❌", key=f"pod_del_{i}_btn")
     if not rem:
-        new_pod.append({"Date": d, "Time": t, "Status": s})
+        new_pod.append({"Date": d, "Time": t, "Status": s, "Start": start_cb, "Stop": stop_cb, "Duration": None})
 st.session_state.pod_rows = new_pod
 
 st.markdown("---")
 
-# ===== Hitung Laytime =====
-if st.button("⚙️ Calculate Laytime"):
-    def calc_rows(rows):
-        if len(rows) < 2:
-            return rows, 0.0
-        total = 0.0
-        updated = []
-        dts = [safe_datetime(r["Date"], r["Time"]) for r in rows]
-        for i in range(len(rows)):
-            dur = 0.0
-            if i > 0:
-                dur = duration_hours_between(dts[i-1], dts[i])
-                total += dur
-            updated.append({
-                "Date": rows[i]["Date"],
-                "Time": rows[i]["Time"],
-                "Status": rows[i]["Status"],
-                "Duration": dur
-            })
-        return updated, total
+# ---------------- Core pairing calc: Start -> Stop ----------------
+def calc_by_checkboxes(rows):
+    """
+    rows: list of dict with keys Date, Time, Status, Start (bool), Stop (bool)
+    returns: enriched_rows (list with Duration populated on Stop rows), total_hours
+    - pairs each Start with the next Stop (chronologically)
+    - supports multiple blocks
+    - if Start exists without Stop, auto-close to now and append synthetic row
+    """
+    if not rows:
+        return [], 0.0
 
-    pol_rows, pol_hours = calc_rows(st.session_state.pol_rows)
-    pod_rows, pod_hours = calc_rows(st.session_state.pod_rows)
+    # sort rows by datetime
+    sorted_rows = sorted(rows, key=lambda r: safe_datetime(r["Date"], r["Time"]))
+    enriched = []
+    total_hours = 0.0
+    start_time = None
+
+    for r in sorted_rows:
+        row_copy = r.copy()
+        row_copy["Duration"] = None  # default empty
+        dt = safe_datetime(r["Date"], r["Time"])
+        # if this row is checked as Start -> open block
+        if r.get("Start"):
+            start_time = dt
+        # if this row is checked as Stop and there is an open start -> close and compute
+        if r.get("Stop") and start_time:
+            dur = duration_hours_between(start_time, dt)
+            row_copy["Duration"] = dur
+            total_hours += dur
+            start_time = None  # close block
+        enriched.append(row_copy)
+
+    # if block still open at end -> auto-close to now, append synthetic row
+    if start_time:
+        now = datetime.now()
+        dur = duration_hours_between(start_time, now)
+        total_hours += dur
+        enriched.append({
+            "Date": now.date(),
+            "Time": now.time().replace(microsecond=0),
+            "Status": "OPEN BLOCK (auto-close to now)",
+            "Start": False,
+            "Stop": False,
+            "Duration": dur
+        })
+
+    return enriched, total_hours
+
+# ---------------- Calculate button ----------------
+if st.button("⚙️ Calculate Laytime"):
+    pol_enriched, pol_hours = calc_by_checkboxes(st.session_state.pol_rows)
+    pod_enriched, pod_hours = calc_by_checkboxes(st.session_state.pod_rows)
+
     total_hours = pol_hours + pod_hours
-    total_days = total_hours / 24
+    total_days = total_hours / 24.0
     detention_days = max(0.0, total_days - prorata)
     total_cost = detention_days * rate_per_day
 
@@ -195,42 +255,105 @@ if st.button("⚙️ Calculate Laytime"):
         "tugboat": tugboat, "barge": barge, "pol": pol, "pod": pod,
         "shipper": shipper, "laycan": laycan,
         "prorata": prorata, "rate_per_day": rate_per_day,
-        "pol_rows": pol_rows, "pod_rows": pod_rows,
+        "pol_rows": pol_enriched, "pod_rows": pod_enriched,
         "pol_hours": pol_hours, "pod_hours": pod_hours,
         "total_hours": total_hours, "total_days": total_days,
         "detention_days": detention_days, "total_cost": total_cost
     }
 
-    # Excel (1 sheet gabungan)
-    df_pol = pd.DataFrame(pol_rows)
-    df_pod = pd.DataFrame(pod_rows)
-    df_pol["Section"] = "POL"
-    df_pod["Section"] = "POD"
-    df_all = pd.concat([df_pol, df_pod])
-    df_all = df_all[["Section", "Date", "Time", "Status", "Duration"]]
+    # ---------------- Prepare Excel (single sheet) ----------------
+    def df_from_enriched(enriched, section_name):
+        if not enriched:
+            return pd.DataFrame(columns=["Section", "Date", "Time", "Status", "Start", "Stop", "Duration (hrs)"])
+        df = pd.DataFrame(enriched).copy()
+        # ensure columns present
+        for c in ["Start", "Stop", "Duration"]:
+            if c not in df.columns:
+                df[c] = pd.NA
+        df["Date"] = df["Date"].apply(lambda d: d.strftime("%Y-%m-%d"))
+        df["Time"] = df["Time"].apply(lambda t: t.strftime("%H:%M"))
+        df = df.rename(columns={"Duration": "Duration (hrs)"})
+        df.insert(0, "Section", section_name)
+        # keep desired order
+        cols = ["Section", "Date", "Time", "Status", "Start", "Stop", "Duration (hrs)"]
+        return df[cols]
 
-    summary_df = pd.DataFrame({
-        "Parameter": ["Durasi POL (jam)", "Durasi POD (jam)", "Total Jam", "Total Hari", "Free Time (hari)", "Demurrage Days", "Total Biaya (Rp)"],
-        "Nilai": [pol_hours, pod_hours, total_hours, total_days, prorata, detention_days, total_cost]
-    })
+    df_pol = df_from_enriched(pol_enriched, "POL")
+    df_pod = df_from_enriched(pod_enriched, "POD")
+    combined = pd.concat([df_pol, df_pod], ignore_index=True, sort=False)
 
+    # summary rows (as separate small DF we will write below combined)
+    summary_rows = [
+        ["SUMMARY", "", "", "Durasi POL (jam)", f"{pol_hours:.2f}"],
+        ["SUMMARY", "", "", "Durasi POD (jam)", f"{pod_hours:.2f}"],
+        ["SUMMARY", "", "", "Total Jam", f"{total_hours:.2f}"],
+        ["SUMMARY", "", "", "Total Hari", f"{total_days:.2f}"],
+        ["SUMMARY", "", "", "Free Time (hari)", f"{prorata:.2f}"],
+        ["SUMMARY", "", "", "Demurrage Days", f"{detention_days:.2f}"],
+        ["SUMMARY", "", "", "Total Biaya (Rp)", format_rp(total_cost)],
+    ]
+    df_summary = pd.DataFrame(summary_rows, columns=["Section", "Date", "Time", "Parameter", "Value"])
+
+    # write excel buffer
     excel_buf = BytesIO()
     with pd.ExcelWriter(excel_buf, engine="xlsxwriter") as writer:
-        df_all.to_excel(writer, index=False, sheet_name="Laytime Data")
-        summary_df.to_excel(writer, index=False, sheet_name="Summary")
-    excel_buf.seek(0)
+        combined.to_excel(writer, index=False, sheet_name="LAYTIME_REPORT", startrow=0)
+        start_summary_row = len(combined) + 3
+        df_summary.to_excel(writer, index=False, sheet_name="LAYTIME_REPORT", startrow=start_summary_row)
+        # basic formatting
+        workbook = writer.book
+        worksheet = writer.sheets["LAYTIME_REPORT"]
+        header_fmt = workbook.add_format({"bold": True, "align": "center", "bg_color": "#DCE6F1", "border": 1})
+        for col_num, value in enumerate(combined.columns.values):
+            worksheet.write(0, col_num, value, header_fmt)
+            worksheet.set_column(col_num, col_num, 18)
+        # bold SUMMARY label
+        bold = workbook.add_format({"bold": True})
+        worksheet.write(start_summary_row, 0, "SUMMARY", bold)
 
+    excel_buf.seek(0)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    excel_filename = f"Laytime_Report_{timestamp}.xlsx"
+
+    # ---------------- Build PDF (no QR) ----------------
     pdf_data = build_pdf(ctx)
 
-    # Output
-    st.subheader("📊 Hasil Perhitungan")
-    st.write(f"POL Duration: **{pol_hours:.2f} jam** ({pol_hours/24:.2f} hari)")
-    st.write(f"POD Duration: **{pod_hours:.2f} jam** ({pod_hours/24:.2f} hari)")
-    st.write(f"Total Duration: **{total_hours:.2f} jam** ({total_days:.2f} hari)")
-    st.write(f"Free Time (Prorata): {prorata:.2f} hari")
-    st.write(f"Demurrage Days: **{detention_days:.2f} hari**")
-    st.write(f"Total Demurrage: **{format_rp(total_cost)}**")
+    # store in session for download & preview
+    st.session_state.excel_data = excel_buf.getvalue()
+    st.session_state.excel_filename = excel_filename
+    st.session_state.pdf_data = pdf_data
+    st.session_state.calc_done = True
+    st.session_state.ctx = ctx
 
-    st.download_button("📄 Download PDF", pdf_data, "Laytime_Report.pdf", "application/pdf")
-    st.download_button("📊 Download Excel", excel_buf, "Laytime_Report.xlsx",
+# ---------------- Output area ----------------
+if st.session_state.get("calc_done"):
+    ctx = st.session_state.ctx
+    st.subheader("📊 Hasil Perhitungan")
+    st.write(f"POL Duration: **{ctx['pol_hours']:.2f} jam** ({ctx['pol_hours']/24:.2f} hari)")
+    st.write(f"POD Duration: **{ctx['pod_hours']:.2f} jam** ({ctx['pod_hours']/24:.2f} hari)")
+    st.write(f"Total Duration: **{ctx['total_hours']:.2f} jam** ({ctx['total_days']:.2f} hari)")
+    st.write(f"Free Time (Prorata): {ctx['prorata']:.2f} hari")
+    st.write(f"Demurrage Days: **{ctx['detention_days']:.2f} hari**")
+    st.write(f"Total Demurrage: **{format_rp(ctx['total_cost'])}**")
+
+    st.markdown("### Preview POL + POD (lihat Excel untuk kolom Start/Stop detail)")
+    # show preview: combine but only show columns Date/Time/Status/Duration for compact view
+    preview_pol = pd.DataFrame(ctx["pol_rows"]).copy()
+    preview_pod = pd.DataFrame(ctx["pod_rows"]).copy()
+    def preview_df(df):
+        if df.empty:
+            return pd.DataFrame(columns=["Date","Time","Status","Duration"])
+        df2 = df.rename(columns={"Duration":"Duration (hrs)"})
+        df2["Date"] = df2["Date"].apply(lambda d: d.strftime("%Y-%m-%d"))
+        df2["Time"] = df2["Time"].apply(lambda t: t.strftime("%H:%M"))
+        df2["Duration (hrs)"] = df2["Duration (hrs)"].apply(lambda v: "" if (v is None or (isinstance(v,float) and pd.isna(v))) else f"{v:.2f}")
+        return df2[["Date","Time","Status","Duration (hrs)"]]
+
+    st.markdown("**POL**")
+    st.dataframe(preview_df(preview_pol), use_container_width=True)
+    st.markdown("**POD**")
+    st.dataframe(preview_df(preview_pod), use_container_width=True)
+
+    st.download_button("📄 Download PDF", st.session_state.pdf_data, "Laytime_Report.pdf", "application/pdf")
+    st.download_button("📊 Download Excel (1 sheet)", st.session_state.excel_data, st.session_state.excel_filename,
                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

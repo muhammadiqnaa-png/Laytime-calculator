@@ -344,40 +344,127 @@ if st.button("⚙️ Calculate Laytime"):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     excel_filename = f"Laytime_Report_{timestamp}.xlsx"
 
-    # ---------------- Build PDF (no QR) ----------------
-    pdf_data = build_pdf(ctx)
+# ---------------- PDF builder (rapi & profesional, tanpa QR) ----------------
+from reportlab.graphics.shapes import Drawing, Line
 
-    # store in session for download & preview
-    st.session_state.excel_data = excel_buf.getvalue()
-    st.session_state.excel_filename = excel_filename
-    st.session_state.pdf_data = pdf_data
-    st.session_state.calc_done = True
-    st.session_state.ctx = ctx
+def build_pdf(ctx):
+    buf = BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=A4,
+        rightMargin=30, leftMargin=30,
+        topMargin=30, bottomMargin=28
+    )
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name="CenterTitle", alignment=1, fontSize=15, spaceAfter=8, leading=16))
+    styles.add(ParagraphStyle(name="SubHeader", fontSize=11, spaceBefore=8, spaceAfter=6, textColor=colors.darkblue))
+    styles.add(ParagraphStyle(name="NormalSmall", fontSize=9, leading=12))
+    elems = []
 
-# ---------------- Output area ----------------
-if st.session_state.get("calc_done"):
-    ctx = st.session_state.ctx
-    st.subheader("📊 Hasil Perhitungan")
-    st.write(f"POL Duration: **{ctx['pol_hours']:.2f} jam** ({ctx['pol_hours']/24:.2f} hari)")
-    st.write(f"POD Duration: **{ctx['pod_hours']:.2f} jam** ({ctx['pod_hours']/24:.2f} hari)")
-    st.write(f"Total Duration: **{ctx['total_hours']:.2f} jam** ({ctx['total_days']:.2f} hari)")
-    st.write(f"Free Time (Prorata): {ctx['prorata']:.2f} hari")
-    st.write(f"Demurrage Days: **{ctx['detention_days']:.2f} hari**")
-    st.write(f"Total Demurrage: **{format_rp(ctx['total_cost'])}**")
+    def hr_line():
+        d = Drawing(450, 1)
+        d.add(Line(0, 0, 450, 0))
+        return d
 
-    st.markdown("### Preview POL + POD (lihat Excel untuk kolom Start/Stop detail)")
-    # show preview: combine but only show columns Date/Time/Status/Duration for compact view
-    preview_pol = pd.DataFrame(ctx["pol_rows"]).copy()
-    preview_pod = pd.DataFrame(ctx["pod_rows"]).copy()
-    def preview_df(df):
-        if df.empty:
-            return pd.DataFrame(columns=["Date","Time","Status","Duration"])
-        df2 = df.rename(columns={"Duration":"Duration (hrs)"})
-        df2["Date"] = df2["Date"].apply(lambda d: d.strftime("%Y-%m-%d"))
-        df2["Time"] = df2["Time"].apply(lambda t: t.strftime("%H:%M"))
-        df2["Duration (hrs)"] = df2["Duration (hrs)"].apply(lambda v: "" if (v is None or (isinstance(v,float) and pd.isna(v))) else f"{v:.2f}")
-        return df2[["Date","Time","Status","Duration (hrs)"]]
+    # ---- Header Title ----
+    elems.append(Paragraph("<b>⚓ VOYAGE REPORT – LAYTIME CALCULATION</b>", styles["CenterTitle"]))
+    elems.append(hr_line())
+    elems.append(Spacer(1, 8))
 
+    # ---- Informasi Umum ----
+    elems.append(Paragraph("<b>Informasi Umum</b>", styles["SubHeader"]))
+    info = [
+        ["Tug Boat", ctx.get("tugboat","")],
+        ["Barge", ctx.get("barge","")],
+        ["Shipper", ctx.get("shipper","")],
+        ["Laycan", ctx.get("laycan","")],
+        ["POL", ctx.get("pol","")],
+        ["POD", ctx.get("pod","")],
+        ["Free Time", f"{ctx['prorata']:.2f} Hari"],
+        ["Rate Demurrage", f"{format_rp(ctx['rate_per_day'])}/Hari"],
+        ["Total Cargo", ctx.get("total_cargo","")],
+    ]
+    t_info = Table(info, colWidths=[130, 350])
+    t_info.setStyle(TableStyle([
+        ("GRID", (0,0), (-1,-1), 0.25, colors.grey),
+        ("BACKGROUND", (0,0), (0,-1), colors.whitesmoke),
+        ("FONTNAME", (0,0), (-1,-1), "Helvetica"),
+        ("FONTSIZE", (0,0), (-1,-1), 9),
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+    ]))
+    elems += [t_info, Spacer(1, 10)]
+
+    elems.append(hr_line())
+    elems.append(Spacer(1, 10))
+
+    # ---- Section Table Builder ----
+    def section(title, rows):
+        elems.append(Paragraph(f"<b>{title}</b>", styles["SubHeader"]))
+        data = [["No", "Date", "Time", "Status", "Duration (Hours)"]]
+        for i, r in enumerate(rows, start=1):
+            dur = r.get("Duration")
+            dur_display = "-" if dur is None or (isinstance(dur, float) and (pd.isna(dur) or dur==0.0)) else f"{dur:.2f}"
+            data.append([
+                str(i),
+                r["Date"].strftime("%d %b %Y"),
+                r["Time"].strftime("%H:%M"),
+                r["Status"],
+                dur_display
+            ])
+        colw = [25, 85, 60, 270, 70]
+        t = Table(data, colWidths=colw, repeatRows=1)
+        t.setStyle(TableStyle([
+            ("GRID", (0,0), (-1,-1), 0.25, colors.grey),
+            ("BACKGROUND", (0,0), (-1,0), colors.lightgrey),
+            ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+            ("FONTNAME", (0,1), (-1,-1), "Helvetica"),
+            ("ALIGN", (0,0), (-1,0), "CENTER"),
+            ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+            ("FONTSIZE", (0,0), (-1,-1), 9),
+        ]))
+        elems.append(t)
+        elems.append(Spacer(1, 10))
+
+    section("Voyage POL", ctx["pol_rows"])
+    section("Voyage POD", ctx["pod_rows"])
+
+    # ---- Summary ----
+    elems.append(hr_line())
+    elems.append(Spacer(1, 8))
+    elems.append(Paragraph("<b>Perhitungan Akhir</b>", styles["SubHeader"]))
+
+    summary = [
+        ["Durasi POL", f"{ctx['pol_hours']:.2f} jam ({ctx['pol_hours']/24:.2f} hari)"],
+        ["Durasi POD", f"{ctx['pod_hours']:.2f} jam ({ctx['pod_hours']/24:.2f} hari)"],
+        ["Total (POL+POD)", f"{ctx['total_hours']:.2f} jam ({ctx['total_days']:.2f} hari)"],
+        ["Free Time", f"{ctx['prorata']:.2f} hari"],
+        ["Demurrage Days", f"{ctx['detention_days']:.2f} hari"],
+        ["Total Biaya", format_rp(ctx['total_cost'])],
+    ]
+    t_sum = Table(summary, colWidths=[200, 300])
+    t_sum.setStyle(TableStyle([
+        ("GRID", (0,0), (-1,-1), 0.25, colors.grey),
+        ("FONTNAME", (0,0), (-1,-1), "Helvetica"),
+        ("BACKGROUND", (0,-1), (-1,-1), colors.whitesmoke),
+        ("TEXTCOLOR", (0,-1), (-1,-1), colors.red),
+        ("FONTNAME", (0,-1), (-1,-1), "Helvetica-Bold"),
+        ("FONTSIZE", (0,0), (-1,-1), 9),
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+    ]))
+    elems += [t_sum, Spacer(1, 12)]
+
+    # ---- Footer ----
+    elems.append(hr_line())
+    elems.append(Spacer(1, 8))
+    elems.append(Paragraph(
+        f"<i>Generated on {datetime.now().strftime('%d %b %Y %H:%M')}</i>",
+        styles["NormalSmall"]
+    ))
+
+    doc.build(elems)
+    buf.seek(0)
+    return buf.read()
+    
     st.markdown("**POL**")
     st.dataframe(preview_df(preview_pol), use_container_width=True)
     st.markdown("**POD**")

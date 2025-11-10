@@ -26,6 +26,24 @@ def format_rp(x):
     except:
         return f"Rp {x}"
 
+def format_cargo_indonesia(x, decimals=3):
+    """
+    Format number ke style Indonesia:
+    - thousands separator = '.'
+    - decimal separator = ','
+    Example: 7500.335 -> '7.500,335'
+    """
+    try:
+        # ensure float
+        xf = float(x)
+    except:
+        return ""
+    # format with python default (',' thousands and '.' decimal)
+    fmt = f"{{:,.{decimals}f}}".format(xf)  # e.g. '7,500.335'
+    # swap to desired (','->temp, '.'->',', temp->'.')
+    s = fmt.replace(",", "X").replace(".", ",").replace("X", ".")
+    return s
+
 # ---------------- PDF builder (no QR) ----------------
 def build_pdf(ctx):
     buf = BytesIO()
@@ -37,13 +55,19 @@ def build_pdf(ctx):
 
     elems.append(Paragraph("⚓ VOYAGE REPORT – LAYTIME CALCULATION", styles["CenterTitle"]))
 
+    # Info order per request:
+    # 1. Tug Boat, 2. Barge, 3. Shipper, 4. Laycan, 5. POL, 6. POD, 7. Total Cargo, 8. Free Time, 9. Rate Demurrage
+    total_cargo_disp = ""
+    if ctx.get("total_cargo") is not None:
+        total_cargo_disp = f"{format_cargo_indonesia(ctx['total_cargo'])} MT"
     info = [
         ["Tug Boat", ctx.get("tugboat","")],
         ["Barge", ctx.get("barge","")],
-        ["POL", ctx.get("pol","")],
-        ["POD", ctx.get("pod","")],
         ["Shipper", ctx.get("shipper","")],
         ["Laycan", ctx.get("laycan","")],
+        ["POL", ctx.get("pol","")],
+        ["POD", ctx.get("pod","")],
+        ["Total Cargo", total_cargo_disp],
         ["Free Time", f"{ctx['prorata']:.2f} Hari"],
         ["Rate Demurrage", f"{format_rp(ctx['rate_per_day'])}/Hari"],
     ]
@@ -57,7 +81,8 @@ def build_pdf(ctx):
         data = [["No", "Date", "Time", "Status", "Duration (Hours)"]]
         for i, r in enumerate(rows, start=1):
             dur = r.get("Duration")
-            dur_display = "-" if dur is None or (isinstance(dur, float) and (pd.isna(dur) or dur==0.0)) else f"{dur:.2f}"
+            # show '-' when None or NaN or zero-empty
+            dur_display = "-" if (dur is None or (isinstance(dur, float) and (pd.isna(dur) or dur==0.0))) else f"{dur:.2f}"
             data.append([str(i),
                          r["Date"].strftime("%d %b %Y"),
                          r["Time"].strftime("%H:%M"),
@@ -115,12 +140,14 @@ st.header("📥 Data Utama")
 col1, col2 = st.columns(2)
 with col1:
     tugboat = st.text_input("Tug Boat")
-    pol = st.text_input("Port of Loading (POL)")
-    shipper = st.text_input("Shipper")
-with col2:
     barge = st.text_input("Barge")
-    pod = st.text_input("Port of Discharge (POD)")
+    shipper = st.text_input("Shipper")
     laycan = st.text_input("Laycan")
+with col2:
+    pol = st.text_input("Port of Loading (POL)")
+    pod = st.text_input("Port of Discharge (POD)")
+    # Total Cargo as numeric input (we'll format on output only)
+    total_cargo = st.number_input("Total Cargo (MT)", min_value=0.0, value=0.0, step=0.001, format="%.3f")
 
 col3, col4 = st.columns(2)
 with col3:
@@ -258,7 +285,8 @@ if st.button("⚙️ Calculate Laytime"):
         "pol_rows": pol_enriched, "pod_rows": pod_enriched,
         "pol_hours": pol_hours, "pod_hours": pod_hours,
         "total_hours": total_hours, "total_days": total_days,
-        "detention_days": detention_days, "total_cost": total_cost
+        "detention_days": detention_days, "total_cost": total_cost,
+        "total_cargo": total_cargo
     }
 
     # ---------------- Prepare Excel (single sheet) ----------------
@@ -284,6 +312,7 @@ if st.button("⚙️ Calculate Laytime"):
 
     # summary rows (as separate small DF we will write below combined)
     summary_rows = [
+        ["SUMMARY", "", "", "Total Cargo", f"{format_cargo_indonesia(total_cargo)} MT"],
         ["SUMMARY", "", "", "Durasi POL (jam)", f"{pol_hours:.2f}"],
         ["SUMMARY", "", "", "Durasi POD (jam)", f"{pod_hours:.2f}"],
         ["SUMMARY", "", "", "Total Jam", f"{total_hours:.2f}"],

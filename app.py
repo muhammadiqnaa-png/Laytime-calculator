@@ -8,7 +8,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import pandas as pd
 
 st.set_page_config(page_title="⚓ Voyage Report", layout="wide")
-st.title("⚓ Voyage Report – Laytime Calculator (Manual Start/Stop)")
+st.title("⚓ Voyage Report – Laytime Calculation")
 
 # ---------------- Helpers ----------------
 def default_time():
@@ -53,7 +53,7 @@ def build_pdf(ctx):
     styles.add(ParagraphStyle(name="SubHeader", fontSize=11, spaceBefore=6, spaceAfter=6, textColor=colors.darkblue))
     elems = []
 
-    elems.append(Paragraph("⚓ VOYAGE REPORT – LAYTIME CALCULATION", styles["CenterTitle"]))
+    elems.append(Paragraph("⚓ VOYAGE REPORT – DETENTION CALCULATION", styles["CenterTitle"]))
 
     # Info order per request:
     # 1. Tug Boat, 2. Barge, 3. Shipper, 4. Laycan, 5. POL, 6. POD, 7. Total Cargo, 8. Free Time, 9. Rate Demurrage
@@ -68,7 +68,7 @@ def build_pdf(ctx):
         ["POL", ctx.get("pol","")],
         ["POD", ctx.get("pod","")],
         ["Total Cargo", total_cargo_disp],
-        ["Free Time", f"{ctx['prorata']:.2f} Hari"],
+        ["prorata", f"{ctx['prorata']:.2f} Day"],
         ["Rate Demurrage", f"{format_rp(ctx['rate_per_day'])}/Hari"],
     ]
     t_info = Table(info, colWidths=[120, 350])
@@ -106,9 +106,9 @@ def build_pdf(ctx):
         ["Durasi POL", f"{ctx['pol_hours']:.2f} jam ({ctx['pol_hours']/24:.2f} hari)"],
         ["Durasi POD", f"{ctx['pod_hours']:.2f} jam ({ctx['pod_hours']/24:.2f} hari)"],
         ["Total (POL+POD)", f"{ctx['total_hours']:.2f} jam ({ctx['total_days']:.2f} hari)"],
-        ["Free Time", f"{ctx['prorata']:.2f} hari"],
+        ["Prorata", f"{ctx['prorata']:.2f} Day"],
         ["Demurrage Days", f"{ctx['detention_days']:.2f} hari"],
-        ["Total Biaya", format_rp(ctx['total_cost'])]
+        ["Total Detention", format_rp(ctx['total_cost'])]
     ]
     t_sum = Table(summary, colWidths=[180, 300])
     t_sum.setStyle(TableStyle([("GRID", (0,0), (-1,-1), 0.25, colors.grey),
@@ -361,8 +361,8 @@ if st.session_state.get("calc_done"):
     st.write(f"POL Duration: **{ctx['pol_hours']:.2f} jam** ({ctx['pol_hours']/24:.2f} hari)")
     st.write(f"POD Duration: **{ctx['pod_hours']:.2f} jam** ({ctx['pod_hours']/24:.2f} hari)")
     st.write(f"Total Duration: **{ctx['total_hours']:.2f} jam** ({ctx['total_days']:.2f} hari)")
-    st.write(f"Free Time (Prorata): {ctx['prorata']:.2f} hari")
-    st.write(f"Demurrage Days: **{ctx['detention_days']:.2f} hari**")
+    st.write(f"Prorata: {ctx['prorata']:.2f} Day")
+    st.write(f"Demurrage Days: **{ctx['detention_days']:.2f} Day**")
     st.write(f"Total Demurrage: **{format_rp(ctx['total_cost'])}**")
 
     st.markdown("### Preview POL + POD (lihat Excel untuk kolom Start/Stop detail)")

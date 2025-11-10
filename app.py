@@ -6,17 +6,14 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-import locale
-
-# Set format Indonesia
-locale.setlocale(locale.LC_ALL, 'id_ID.UTF-8')
 
 # ==========================================================
-# Fungsi bantu format angka cargo
+# Fungsi bantu format angka cargo (manual Indonesia format)
 # ==========================================================
 def format_cargo(value):
     try:
-        formatted = f"{value:,.3f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        val = float(value)
+        formatted = f"{val:,.3f}".replace(",", "X").replace(".", ",").replace("X", ".")
         return f"{formatted} MT"
     except:
         return f"{value} MT"
@@ -131,10 +128,10 @@ def generate_pdf():
 
     t = Table(voyage_info, colWidths=[4*cm, 11*cm])
     t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (1, 0), colors.lightgrey),
         ('GRID', (0, 0), (-1, -1), 0.3, colors.grey),
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
         ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+        ('BACKGROUND', (0, 0), (1, 0), colors.lightgrey),
     ]))
     story.append(t)
     story.append(Spacer(1, 10))

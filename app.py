@@ -75,7 +75,7 @@ def build_pdf(ctx):
     t_info.setStyle(TableStyle([("GRID", (0,0), (-1,-1), 0.25, colors.grey),
                                 ("FONTNAME", (0,0), (-1,-1), "Helvetica"),
                                 ("FONTSIZE", (0,0), (-1,-1), 9)]))
-    elems += [Spacer(1,6), Paragraph("<b>Informasi Umum</b>", styles["SubHeader"]), t_info, Spacer(1,8)]
+    elems += [Spacer(1,6), Paragraph("<b>Information</b>", styles["SubHeader"]), t_info, Spacer(1,8)]
 
     def section(title, rows):
         data = [["No", "Date", "Time", "Status", "Duration (Hours)"]]

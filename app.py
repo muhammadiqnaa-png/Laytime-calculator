@@ -140,11 +140,11 @@ st.header("📥 Data Utama")
 col1, col2 = st.columns(2)
 with col1:
     tugboat = st.text_input("Tug Boat")
-    barge = st.text_input("Barge")
+    pol = st.text_input("Port of Loading (POL)")
     shipper = st.text_input("Shipper")
     laycan = st.text_input("Laycan")
 with col2:
-    pol = st.text_input("Port of Loading (POL)")
+    barge = st.text_input("Barge")
     pod = st.text_input("Port of Discharge (POD)")
     # Total Cargo as numeric input (we'll format on output only)
     total_cargo = st.number_input("Total Cargo (MT)", min_value=0.0, value=0.0, step=0.001, format="%.3f")

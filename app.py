@@ -410,6 +410,5 @@ st.download_button(
     file_name=filename_pdf,
     mime="application/pdf"
 )
-
-    st.download_button("📊 Download Excel (1 sheet)", st.session_state.excel_data, st.session_state.excel_filename,
+st.download_button("📊 Download Excel (1 sheet)", st.session_state.excel_data, st.session_state.excel_filename,
                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

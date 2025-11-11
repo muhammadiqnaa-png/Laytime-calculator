@@ -8,7 +8,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import pandas as pd
 
 st.set_page_config(page_title="⚓ Voyage Report", layout="wide")
-st.title("⚓ Voyage Report – Laytime Calculation")
+st.title("⚓ Voyage Report – Detention Calculation")
 
 # ---------------- Helpers ----------------
 def default_time():
@@ -153,7 +153,7 @@ col3, col4 = st.columns(2)
 with col3:
     prorata = st.number_input("Prorata (Day)", 0.0, step=0.5, value=0.0)
 with col4:
-    rate_per_day = st.number_input("Rate Detention (Rp/Hari)", 0.0, step=100000.0, value=0.0)
+    rate_per_day = st.number_input("Rate Detention (Rp/Day)", 0.0, step=100000.0, value=0.0)
 
 st.markdown("**Catatan:** Isi `Status` bebas ketik. Tandai **Start** dan **Stop** dengan checkbox pada tiap baris (kanan). Sistem akan pasangan Start→Stop berurutan untuk menghitung durasi (jam).")
 st.markdown("---")
@@ -313,13 +313,13 @@ if st.button("⚙️ Calculate Laytime"):
     # summary rows (as separate small DF we will write below combined)
     summary_rows = [
         ["SUMMARY", "", "", "Total Cargo", f"{format_cargo_indonesia(total_cargo)} MT"],
-        ["SUMMARY", "", "", "Durasi POL (jam)", f"{pol_hours:.2f}"],
-        ["SUMMARY", "", "", "Durasi POD (jam)", f"{pod_hours:.2f}"],
-        ["SUMMARY", "", "", "Total Jam", f"{total_hours:.2f}"],
-        ["SUMMARY", "", "", "Total Hari", f"{total_days:.2f}"],
-        ["SUMMARY", "", "", "Free Time (hari)", f"{prorata:.2f}"],
+        ["SUMMARY", "", "", "Durasi POL (Hour)", f"{pol_hours:.2f}"],
+        ["SUMMARY", "", "", "Durasi POD (Hour)", f"{pod_hours:.2f}"],
+        ["SUMMARY", "", "", "Total Hour", f"{total_hours:.2f}"],
+        ["SUMMARY", "", "", "Total Day", f"{total_days:.2f}"],
+        ["SUMMARY", "", "", "Prorata (Day)", f"{prorata:.2f}"],
         ["SUMMARY", "", "", "Demurrage Days", f"{detention_days:.2f}"],
-        ["SUMMARY", "", "", "Total Biaya (Rp)", format_rp(total_cost)],
+        ["SUMMARY", "", "", "Total Detention (Rp)", format_rp(total_cost)],
     ]
     df_summary = pd.DataFrame(summary_rows, columns=["Section", "Date", "Time", "Parameter", "Value"])
 
@@ -357,10 +357,10 @@ if st.button("⚙️ Calculate Laytime"):
 # ---------------- Output area ----------------
 if st.session_state.get("calc_done"):
     ctx = st.session_state.ctx
-    st.subheader("📊 Hasil Perhitungan")
-    st.write(f"POL Duration: **{ctx['pol_hours']:.2f} jam** ({ctx['pol_hours']/24:.2f} day)")
-    st.write(f"POD Duration: **{ctx['pod_hours']:.2f} jam** ({ctx['pod_hours']/24:.2f} day)")
-    st.write(f"Total Duration: **{ctx['total_hours']:.2f} jam** ({ctx['total_days']:.2f} day)")
+    st.subheader("📊 Summary")
+    st.write(f"POL Duration: **{ctx['pol_hours']:.2f} hour** ({ctx['pol_hours']/24:.2f} day)")
+    st.write(f"POD Duration: **{ctx['pod_hours']:.2f} hour** ({ctx['pod_hours']/24:.2f} day)")
+    st.write(f"Total Duration: **{ctx['total_hours']:.2f} hour** ({ctx['total_days']:.2f} day)")
     st.write(f"Prorata: {ctx['prorata']:.2f} day")
     st.write(f"Detention Days: **{ctx['detention_days']:.2f} day**")
     st.write(f"Total Demurrage: **{format_rp(ctx['total_cost'])}**")

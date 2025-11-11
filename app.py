@@ -71,7 +71,7 @@ def build_pdf(ctx):
         ["Free Time", f"{ctx['prorata']:.2f} Hari"],
         ["Rate Demurrage", f"{format_rp(ctx['rate_per_day'])}/Hari"],
     ]
-    t_info = Table(info, colWidths=[150, 380])
+    t_info = Table(info, colWidths=[130, 410])
     t_info.setStyle(TableStyle([("GRID", (0,0), (-1,-1), 0.25, colors.grey),
                                 ("FONTNAME", (0,0), (-1,-1), "Helvetica"),
                                 ("FONTSIZE", (0,0), (-1,-1), 9)]))
@@ -110,7 +110,7 @@ def build_pdf(ctx):
         ["Demurrage Days", f"{ctx['detention_days']:.2f} hari"],
         ["Total Biaya", format_rp(ctx['total_cost'])]
     ]
-    t_sum = Table(summary, colWidths=[150, 380])
+    t_sum = Table(summary, colWidths=[130, 410])
     t_sum.setStyle(TableStyle([("GRID", (0,0), (-1,-1), 0.25, colors.grey),
                                ("BACKGROUND", (0,5), (-1,5), colors.whitesmoke),
                                ("TEXTCOLOR", (0,5), (-1,5), colors.red),

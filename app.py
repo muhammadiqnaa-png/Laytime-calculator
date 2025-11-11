@@ -8,7 +8,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import pandas as pd
 
 st.set_page_config(page_title="⚓ Voyage Report", layout="wide")
-st.title("⚓ Voyage Report – Laytime Calculator (Manual Start/Stop)")
+st.title("⚓ Voyage Report – Laytime Calculation")
 
 # ---------------- Helpers ----------------
 def default_time():
@@ -68,7 +68,7 @@ def build_pdf(ctx):
         ["POL", ctx.get("pol","")],
         ["POD", ctx.get("pod","")],
         ["Total Cargo", total_cargo_disp],
-        ["Free Time", f"{ctx['prorata']:.2f} Hari"],
+        ["Prorata", f"{ctx['prorata']:.2f} Hari"],
         ["Rate Demurrage", f"{format_rp(ctx['rate_per_day'])}/Hari"],
     ]
     t_info = Table(info, colWidths=[130, 410])
@@ -103,19 +103,19 @@ def build_pdf(ctx):
     section("Voyage POD", ctx["pod_rows"])
 
     summary = [
-        ["Durasi POL", f"{ctx['pol_hours']:.2f} jam ({ctx['pol_hours']/24:.2f} hari)"],
-        ["Durasi POD", f"{ctx['pod_hours']:.2f} jam ({ctx['pod_hours']/24:.2f} hari)"],
-        ["Total (POL+POD)", f"{ctx['total_hours']:.2f} jam ({ctx['total_days']:.2f} hari)"],
-        ["Free Time", f"{ctx['prorata']:.2f} hari"],
-        ["Demurrage Days", f"{ctx['detention_days']:.2f} hari"],
-        ["Total Biaya", format_rp(ctx['total_cost'])]
+        ["Duration POL", f"{ctx['pol_hours']:.2f} hours ({ctx['pol_hours']/24:.2f} day)"],
+        ["Duration POD", f"{ctx['pod_hours']:.2f} hours ({ctx['pod_hours']/24:.2f} day)"],
+        ["Total (POL+POD)", f"{ctx['total_hours']:.2f} Hours ({ctx['total_days']:.2f} day)"],
+        ["Free Time", f"{ctx['prorata']:.2f} day"],
+        ["Demurrage Days", f"{ctx['detention_days']:.2f} day"],
+        ["Total Detention", format_rp(ctx['total_cost'])]
     ]
     t_sum = Table(summary, colWidths=[130, 410])
     t_sum.setStyle(TableStyle([("GRID", (0,0), (-1,-1), 0.25, colors.grey),
                                ("BACKGROUND", (0,5), (-1,5), colors.whitesmoke),
                                ("TEXTCOLOR", (0,5), (-1,5), colors.red),
                                ("FONTNAME", (0,0), (-1,-1), "Helvetica")]))
-    elems += [Paragraph("<b>Perhitungan Akhir</b>", styles["SubHeader"]), t_sum, Spacer(1,8)]
+    elems += [Paragraph("<b>Summary</b>", styles["SubHeader"]), t_sum, Spacer(1,8)]
 
     doc.build(elems)
     buf.seek(0)
@@ -151,9 +151,9 @@ with col2:
 
 col3, col4 = st.columns(2)
 with col3:
-    prorata = st.number_input("Free Time (Hari)", 0.0, step=0.5, value=0.0)
+    prorata = st.number_input("Prorata (Day)", 0.0, step=0.5, value=0.0)
 with col4:
-    rate_per_day = st.number_input("Rate Demurrage (Rp/Hari)", 0.0, step=100000.0, value=0.0)
+    rate_per_day = st.number_input("Rate Detention (Rp/Hari)", 0.0, step=100000.0, value=0.0)
 
 st.markdown("**Catatan:** Isi `Status` bebas ketik. Tandai **Start** dan **Stop** dengan checkbox pada tiap baris (kanan). Sistem akan pasangan Start→Stop berurutan untuk menghitung durasi (jam).")
 st.markdown("---")
@@ -358,11 +358,11 @@ if st.button("⚙️ Calculate Laytime"):
 if st.session_state.get("calc_done"):
     ctx = st.session_state.ctx
     st.subheader("📊 Hasil Perhitungan")
-    st.write(f"POL Duration: **{ctx['pol_hours']:.2f} jam** ({ctx['pol_hours']/24:.2f} hari)")
-    st.write(f"POD Duration: **{ctx['pod_hours']:.2f} jam** ({ctx['pod_hours']/24:.2f} hari)")
-    st.write(f"Total Duration: **{ctx['total_hours']:.2f} jam** ({ctx['total_days']:.2f} hari)")
-    st.write(f"Free Time (Prorata): {ctx['prorata']:.2f} hari")
-    st.write(f"Demurrage Days: **{ctx['detention_days']:.2f} hari**")
+    st.write(f"POL Duration: **{ctx['pol_hours']:.2f} jam** ({ctx['pol_hours']/24:.2f} day)")
+    st.write(f"POD Duration: **{ctx['pod_hours']:.2f} jam** ({ctx['pod_hours']/24:.2f} day)")
+    st.write(f"Total Duration: **{ctx['total_hours']:.2f} jam** ({ctx['total_days']:.2f} day)")
+    st.write(f"Prorata: {ctx['prorata']:.2f} day")
+    st.write(f"Detention Days: **{ctx['detention_days']:.2f} day**")
     st.write(f"Total Demurrage: **{format_rp(ctx['total_cost'])}**")
 
     st.markdown("### Preview POL + POD (lihat Excel untuk kolom Start/Stop detail)")

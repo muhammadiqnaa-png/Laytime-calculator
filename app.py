@@ -396,6 +396,20 @@ if st.session_state.get("calc_done"):
     st.markdown("**POD**")
     st.dataframe(preview_df(preview_pod), use_container_width=True)
 
-    st.download_button("📄 Download PDF", st.session_state.pdf_data, "Laytime_Report.pdf", "application/pdf")
+# 🔧 Buat nama file PDF otomatis
+date_str = datetime.now().strftime("%d%b%Y")  # contoh: 11Nov2025
+judul = "LaytimeReport"
+nama_kapal = ctx.get("barge", "").replace(" ", "")
+pol = ctx.get("pol", "").replace(" ", "")
+pod = ctx.get("pod", "").replace(" ", "")
+filename_pdf = f"{judul}_{nama_kapal}_{pol}-{pod}_{date_str}.pdf"
+
+st.download_button(
+    "📄 Download PDF",
+    st.session_state.pdf_data,
+    file_name=filename_pdf,
+    mime="application/pdf"
+)
+
     st.download_button("📊 Download Excel (1 sheet)", st.session_state.excel_data, st.session_state.excel_filename,
                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

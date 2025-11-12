@@ -50,7 +50,7 @@ def build_pdf(ctx):
     doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=28, leftMargin=28, topMargin=0, bottomMargin=0)
     styles = getSampleStyleSheet()
     styles.add(ParagraphStyle(name="CenterTitle", alignment=1, fontSize=12, spaceAfter=6))
-    styles.add(ParagraphStyle(name="SubHeader", fontSize=10, spaceBefore=6, spaceAfter=6, textColor=colors.darkblue))
+    styles.add(ParagraphStyle(name="SubHeader", fontSize=10, spaceBefore=4, spaceAfter=4, textColor=colors.darkblue))
     elems = []
 
     elems.append(Paragraph("⚓ VOYAGE REPORT – LAYTIME CALCULATION", styles["CenterTitle"]))
@@ -75,7 +75,7 @@ def build_pdf(ctx):
     t_info.setStyle(TableStyle([("GRID", (0,0), (-1,-1), 0.25, colors.grey),
                                 ("FONTNAME", (0,0), (-1,-1), "Helvetica"),
                                 ("FONTSIZE", (0,0), (-1,-1), 9)]))
-    elems += [Spacer(1,2), Paragraph("<b>Information</b>", styles["SubHeader"]), t_info, Spacer(1,2)]
+    elems += [Spacer(1,1), Paragraph("<b>Information</b>", styles["SubHeader"]), t_info, Spacer(1,1)]
 
     def section(title, rows):
         data = [["No", "Date", "Time", "Status", "Duration (Hours)"]]
@@ -97,7 +97,7 @@ def build_pdf(ctx):
                                ("FONTSIZE", (0,0), (-1,-1), 9)]))
         elems.append(Paragraph(f"<b>{title}</b>", styles["SubHeader"]))
         elems.append(t)
-        elems.append(Spacer(1,2))
+        elems.append(Spacer(1,1))
 
     section("Voyage POL", ctx["pol_rows"])
     section("Voyage POD", ctx["pod_rows"])
@@ -115,7 +115,7 @@ def build_pdf(ctx):
                                ("BACKGROUND", (0,5), (-1,5), colors.whitesmoke),
                                ("TEXTCOLOR", (0,5), (-1,5), colors.red),
                                ("FONTNAME", (0,0), (-1,-1), "Helvetica")]))
-    elems += [Paragraph("<b>Summary</b>", styles["SubHeader"]), t_sum, Spacer(1,2)]
+    elems += [Paragraph("<b>Summary</b>", styles["SubHeader"]), t_sum, Spacer(1,1)]
 
             # 🔧 Tambahkan footer di bawah dokumen
     today = datetime.now().strftime("%d %B %Y")
@@ -134,7 +134,7 @@ def build_pdf(ctx):
     pt_shipper = ctx.get("shipper", "(Shipper)")
 
     # 🔹 Spacer biar agak ke bawah
-    elems.append(Spacer(1, 2))
+    elems.append(Spacer(1, 1))
 
     # 🔹 Gaya teks rata tengah
     ttd_style_center = ParagraphStyle(name="TTDCenter", fontSize=10, alignment=1)

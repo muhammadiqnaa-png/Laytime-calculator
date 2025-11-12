@@ -147,8 +147,8 @@ def build_pdf(ctx):
                 Paragraph(f"<b>{pt_shipper}</b>", ttd_style_center),
             ],
             [
-                Paragraph("<br/><br/>--------------------------", ttd_style_center),
-                Paragraph("<br/><br/>-----------------------------", ttd_style_center),
+                Paragraph("<br/><br/><br/><br/>--------------------------", ttd_style_center),
+                Paragraph("<br/><br/><br/><br/>-----------------------------", ttd_style_center),
             ],
         ],
         colWidths=[260, 260],  # simetris kiri-kanan

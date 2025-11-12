@@ -47,9 +47,9 @@ def format_cargo_indonesia(x, decimals=3):
 # ---------------- PDF builder (no QR) ----------------
 def build_pdf(ctx):
     buf = BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=28, leftMargin=28, topMargin=28, bottomMargin=28)
+    doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=28, leftMargin=28, topMargin=0, bottomMargin=0)
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(name="CenterTitle", alignment=1, fontSize=14, spaceAfter=8))
+    styles.add(ParagraphStyle(name="CenterTitle", alignment=1, fontSize=14, spaceAfter=6))
     styles.add(ParagraphStyle(name="SubHeader", fontSize=11, spaceBefore=6, spaceAfter=6, textColor=colors.darkblue))
     elems = []
 
@@ -75,7 +75,7 @@ def build_pdf(ctx):
     t_info.setStyle(TableStyle([("GRID", (0,0), (-1,-1), 0.25, colors.grey),
                                 ("FONTNAME", (0,0), (-1,-1), "Helvetica"),
                                 ("FONTSIZE", (0,0), (-1,-1), 9)]))
-    elems += [Spacer(1,6), Paragraph("<b>Information</b>", styles["SubHeader"]), t_info, Spacer(1,8)]
+    elems += [Spacer(1,6), Paragraph("<b>Information</b>", styles["SubHeader"]), t_info, Spacer(1,2)]
 
     def section(title, rows):
         data = [["No", "Date", "Time", "Status", "Duration (Hours)"]]
@@ -97,7 +97,7 @@ def build_pdf(ctx):
                                ("FONTSIZE", (0,0), (-1,-1), 9)]))
         elems.append(Paragraph(f"<b>{title}</b>", styles["SubHeader"]))
         elems.append(t)
-        elems.append(Spacer(1,8))
+        elems.append(Spacer(1,2))
 
     section("Voyage POL", ctx["pol_rows"])
     section("Voyage POD", ctx["pod_rows"])
@@ -115,7 +115,7 @@ def build_pdf(ctx):
                                ("BACKGROUND", (0,5), (-1,5), colors.whitesmoke),
                                ("TEXTCOLOR", (0,5), (-1,5), colors.red),
                                ("FONTNAME", (0,0), (-1,-1), "Helvetica")]))
-    elems += [Paragraph("<b>Summary</b>", styles["SubHeader"]), t_sum, Spacer(1,8)]
+    elems += [Paragraph("<b>Summary</b>", styles["SubHeader"]), t_sum, Spacer(1,2)]
 
             # 🔧 Tambahkan footer di bawah dokumen
     today = datetime.now().strftime("%d %B %Y")

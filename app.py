@@ -130,11 +130,11 @@ def build_pdf(ctx):
     elems.append(Paragraph(footer_text, footer_style))
 
     # 🔹 Ambil nama PT otomatis
-    pt_input = ctx.get("company_name", "PT A (Input)")
-    pt_shipper = ctx.get("shipper", "PT B (Shipper)")
+    pt_input = ctx.get("company_name", "(Input)")
+    pt_shipper = ctx.get("shipper", "(Shipper)")
 
     # 🔹 Spacer biar agak ke bawah
-    elems.append(Spacer(1, 50))
+    elems.append(Spacer(1, 100))
 
     # 🔹 Gaya teks rata tengah
     ttd_style_center = ParagraphStyle(name="TTDCenter", fontSize=10, alignment=1)

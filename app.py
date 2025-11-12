@@ -423,6 +423,7 @@ if st.button("Generate PDF"):
 # ---------------- Output area ----------------
 if st.session_state.get("calc_done"):
     ctx = st.session_state.ctx
+
     st.subheader("📊 Summary")
     st.write(f"POL Duration: **{ctx['pol_hours']:.2f} hour** ({ctx['pol_hours']/24:.2f} day)")
     st.write(f"POD Duration: **{ctx['pod_hours']:.2f} hour** ({ctx['pod_hours']/24:.2f} day)")
@@ -432,9 +433,9 @@ if st.session_state.get("calc_done"):
     st.write(f"Total Demurrage: **{format_rp(ctx['total_cost'])}**")
 
     st.markdown("### Preview POL + POD (lihat Excel untuk kolom Start/Stop detail)")
-    # show preview: combine but only show columns Date/Time/Status/Duration for compact view
     preview_pol = pd.DataFrame(ctx["pol_rows"]).copy()
     preview_pod = pd.DataFrame(ctx["pod_rows"]).copy()
+
     def preview_df(df):
         if df.empty:
             return pd.DataFrame(columns=["Date","Time","Status","Duration"])
@@ -449,19 +450,38 @@ if st.session_state.get("calc_done"):
     st.markdown("**POD**")
     st.dataframe(preview_df(preview_pod), use_container_width=True)
 
-# 🔧 Buat nama file PDF otomatis
-date_str = datetime.now().strftime("%d%b%Y")  # contoh: 11Nov2025
-judul = "LaytimeReport"
-nama_kapal = ctx.get("tugboat", "").replace(" ", "")
-pol = ctx.get("pol", "").replace(" ", "")
-pod = ctx.get("pod", "").replace(" ", "")
-filename_pdf = f"{judul}_{nama_kapal}_{pol}-{pod}_{date_str}.pdf"
+    # ------------------- prepare automatic filename (use ctx safely here) -------------------
+    date_str = datetime.now().strftime("%d%b%Y")  # contoh: 11Nov2025
+    judul = "LaytimeReport"
+    # fallback: prefer 'barge', else 'tugboat'
+    nama_kapal = (ctx.get("barge") or ctx.get("tugboat") or "").replace(" ", "")
+    pol_name = ctx.get("pol", "").replace(" ", "")
+    pod_name = ctx.get("pod", "").replace(" ", "")
+    comp = ctx.get("company_name", "").replace(" ", "")
 
-st.download_button(
-    "📄 Download PDF",
-    st.session_state.pdf_data,
-    file_name=filename_pdf,
-    mime="application/pdf"
-)
-st.download_button("📊 Download Excel (1 sheet)", st.session_state.excel_data, st.session_state.excel_filename,
-                       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    parts = [judul]
+    if nama_kapal: parts.append(nama_kapal)
+    if pol_name or pod_name: parts.append(f"{pol_name}-{pod_name}")
+    if comp: parts.append(comp)
+    parts.append(date_str)
+    filename_pdf = "_".join(parts) + ".pdf"
+
+    # ------------------- Download buttons (only shown after calc) -------------------
+    if st.session_state.get("pdf_data"):
+        st.download_button(
+            "📄 Download PDF",
+            st.session_state.pdf_data,
+            file_name=filename_pdf,
+            mime="application/pdf"
+        )
+    else:
+        st.info("PDF belum tersedia — tekan '⚙️ Calculate Laytime' terlebih dahulu.")
+
+    if st.session_state.get("excel_data") and st.session_state.get("excel_filename"):
+        st.download_button(
+            "📊 Download Excel (1 sheet)",
+            st.session_state.excel_data,
+            st.session_state.excel_filename,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+

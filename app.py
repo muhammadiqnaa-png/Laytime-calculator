@@ -451,7 +451,7 @@ if st.session_state.get("calc_done"):
 # 🔧 Buat nama file PDF otomatis
 date_str = datetime.now().strftime("%d%b%Y")  # contoh: 11Nov2025
 judul = "LaytimeReport"
-nama_kapal = ctx.get("barge", "").replace(" ", "")
+nama_kapal = ctx.get("tugboat", "").replace(" ", "")
 pol = ctx.get("pol", "").replace(" ", "")
 pod = ctx.get("pod", "").replace(" ", "")
 filename_pdf = f"{judul}_{nama_kapal}_{pol}-{pod}_{date_str}.pdf"

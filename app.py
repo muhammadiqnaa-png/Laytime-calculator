@@ -342,6 +342,7 @@ if st.button("⚙️ Calculate Laytime"):
     detention_days = max(0.0, total_days - prorata)
     total_cost = detention_days * rate_per_day
 
+if st.button("Generate PDF"):
     ctx = {
         "tugboat": tugboat, "barge": barge, "pol": pol, "pod": pod,
         "shipper": shipper, "laycan": laycan,

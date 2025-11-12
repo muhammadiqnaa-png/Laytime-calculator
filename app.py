@@ -134,7 +134,7 @@ def build_pdf(ctx):
     pt_shipper = ctx.get("shipper", "(Shipper)")
 
     # 🔹 Spacer biar agak ke bawah
-    elems.append(Spacer(1, 10))
+    elems.append(Spacer(1, 2))
 
     # 🔹 Gaya teks rata tengah
     ttd_style_center = ParagraphStyle(name="TTDCenter", fontSize=10, alignment=1)

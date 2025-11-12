@@ -350,8 +350,8 @@ if st.button("⚙️ Calculate Laytime"):
         "pol_hours": pol_hours, "pod_hours": pod_hours,
         "total_hours": total_hours, "total_days": total_days,
         "detention_days": detention_days, "total_cost": total_cost,
-        "total_cargo": total_cargo
-        "company_name": company_name
+        "total_cargo": total_cargo,
+        "company_name": company_name,
     }
 
     # ---------------- Prepare Excel (single sheet) ----------------

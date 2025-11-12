@@ -68,8 +68,8 @@ def build_pdf(ctx):
         ["POL", ctx.get("pol","")],
         ["POD", ctx.get("pod","")],
         ["Total Cargo", total_cargo_disp],
-        ["Prorata", f"{ctx['prorata']:.2f} Hari"],
-        ["Rate Demurrage", f"{format_rp(ctx['rate_per_day'])}/Hari"],
+        ["Prorata", f"{ctx['prorata']:.2f} Day"],
+        ["Rate Detention", f"{format_rp(ctx['rate_per_day'])}/Day"],
     ]
     t_info = Table(info, colWidths=[130, 410])
     t_info.setStyle(TableStyle([("GRID", (0,0), (-1,-1), 0.25, colors.grey),
@@ -106,8 +106,8 @@ def build_pdf(ctx):
         ["Duration POL", f"{ctx['pol_hours']:.2f} hours ({ctx['pol_hours']/24:.2f} day)"],
         ["Duration POD", f"{ctx['pod_hours']:.2f} hours ({ctx['pod_hours']/24:.2f} day)"],
         ["Total (POL+POD)", f"{ctx['total_hours']:.2f} Hours ({ctx['total_days']:.2f} day)"],
-        ["Free Time", f"{ctx['prorata']:.2f} day"],
-        ["Demurrage Days", f"{ctx['detention_days']:.2f} day"],
+        ["Prorata", f"{ctx['prorata']:.2f} day"],
+        ["Detention Days", f"{ctx['detention_days']:.2f} day"],
         ["Total Detention", format_rp(ctx['total_cost'])]
     ]
     t_sum = Table(summary, colWidths=[130, 410])
@@ -370,7 +370,7 @@ if st.button("⚙️ Calculate Laytime"):
         ["SUMMARY", "", "", "Total Hour", f"{total_hours:.2f}"],
         ["SUMMARY", "", "", "Total Day", f"{total_days:.2f}"],
         ["SUMMARY", "", "", "Prorata (Day)", f"{prorata:.2f}"],
-        ["SUMMARY", "", "", "Demurrage Days", f"{detention_days:.2f}"],
+        ["SUMMARY", "", "", "Detention Days", f"{detention_days:.2f}"],
         ["SUMMARY", "", "", "Total Detention (Rp)", format_rp(total_cost)],
     ]
     df_summary = pd.DataFrame(summary_rows, columns=["Section", "Date", "Time", "Parameter", "Value"])
@@ -415,7 +415,7 @@ if st.session_state.get("calc_done"):
     st.write(f"Total Duration: **{ctx['total_hours']:.2f} hour** ({ctx['total_days']:.2f} day)")
     st.write(f"Prorata: {ctx['prorata']:.2f} day")
     st.write(f"Detention Days: **{ctx['detention_days']:.2f} day**")
-    st.write(f"Total Demurrage: **{format_rp(ctx['total_cost'])}**")
+    st.write(f"Total Detention: **{format_rp(ctx['total_cost'])}**")
 
     st.markdown("### Preview POL + POD (lihat Excel untuk kolom Start/Stop detail)")
     # show preview: combine but only show columns Date/Time/Status/Duration for compact view
